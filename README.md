@@ -2,6 +2,27 @@
 
 [![pub package](https://img.shields.io/pub/v/strike_cli.svg)](https://pub.dartlang.org/packages/strike_cli)
 
+```
+❯ strike setup
+Setting up Git Hooks
+|   ✓ git config --local core.hooksPath .githooks
+Fetching Dependencies (10/10)
+|   ✓ flutter pub get (in ./app)
+|   ✓ flutter pub get (in ./packages/auth)
+|   ✓ flutter pub get (in ./packages/checkout)
+|   ✓ flutter pub get (in ./packages/core)
+|   ✓ flutter pub get (in ./packages/storefront)
+Generating Code (0/8)
+|  ⠈⢙ flutter pub run build_runner build --delete-conflicting-outputs (in ./packages\auth)
+|  ⠄⡙ flutter pub run build_runner build --delete-conflicting-outputs (in ./packages\checkout)
+|  ⡋⠁ flutter pub run build_runner build --delete-conflicting-outputs (in ./packages\core)
+|      flutter pub run build_runner build --delete-conflicting-outputs (in ./packages\storefront)
+Running Tests (0/3)
+|     flutter test (in .\packages\auth)
+|     flutter test (in .\packages\checkout)
+|     flutter test (in .\packages\storefront)
+```
+
 ## Getting Started
 
 To start using `strike_cli`, run `pub global activate strike_cli`.
