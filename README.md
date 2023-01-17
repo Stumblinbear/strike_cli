@@ -6,13 +6,13 @@
 ❯ strike setup
 Setting up Git Hooks
 |   ✓ git config --local core.hooksPath .githooks
-Fetching Dependencies (10/10)
+Fetching Dependencies (5/5)
 |   ✓ flutter pub get (in ./app)
 |   ✓ flutter pub get (in ./packages/auth)
 |   ✓ flutter pub get (in ./packages/checkout)
 |   ✓ flutter pub get (in ./packages/core)
 |   ✓ flutter pub get (in ./packages/storefront)
-Generating Code (0/8)
+Generating Code (0/4)
 |  ⠈⢙ flutter pub run build_runner build --delete-conflicting-outputs (in ./packages\auth)
 |  ⠄⡙ flutter pub run build_runner build --delete-conflicting-outputs (in ./packages\checkout)
 |  ⡋⠁ flutter pub run build_runner build --delete-conflicting-outputs (in ./packages\core)
