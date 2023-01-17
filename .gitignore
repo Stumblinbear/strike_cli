@@ -1,0 +1,27 @@
+# Miscellaneous
+*.env
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+migrate_working_dir/
+.vscode/launch.json
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+.last_build_id
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
