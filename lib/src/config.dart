@@ -1,5 +1,6 @@
 // ignore_for_file: avoid_dynamic_calls
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:strike_cli/src/target.dart';
@@ -29,18 +30,23 @@ class StrikeConfig {
       final inputTargets = input['targets'];
 
       if (inputTargets is! Map<dynamic, dynamic>) {
-        throw FormatException('`targets` must be a map');
+        throw FormatException(
+          'Config `targets` must be a map',
+          jsonEncode(inputTargets),
+        );
       }
 
       for (final entry in inputTargets.entries) {
-        final key = entry.key;
+        final targetName = entry.key;
 
-        if (key is! String) {
+        if (targetName is! String) {
           throw FormatException(
-              '`targets.${entry.key}` is invalid: must be a string');
+            'Target name is invalid: must be a string',
+            jsonEncode(targetName),
+          );
         }
 
-        targets[key] = Target.parse(entry.value);
+        targets[targetName] = Target.parse(entry.value);
       }
     }
 
@@ -48,18 +54,23 @@ class StrikeConfig {
       final inputTasks = input['tasks'];
 
       if (inputTasks is! Map<dynamic, dynamic>) {
-        throw FormatException('`tasks` must be a map');
+        throw FormatException(
+          'Config `tasks` must be a map',
+          jsonEncode(inputTasks),
+        );
       }
 
       for (final entry in inputTasks.entries) {
-        final key = entry.key;
+        final taskName = entry.key;
 
-        if (key is! String) {
+        if (taskName is! String) {
           throw FormatException(
-              '`tasks.${entry.key}` is invalid: must be a string');
+            'Task name is invalid: must be a string',
+            jsonEncode(taskName),
+          );
         }
 
-        tasks[key] = Task.parse(entry.value);
+        tasks[taskName] = Task.parse(entry.value, taskName: taskName);
       }
     }
 

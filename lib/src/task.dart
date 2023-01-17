@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:strike_cli/src/target.dart';
@@ -13,15 +14,18 @@ class Task {
       required this.params,
       required this.step});
 
-  factory Task.parse(dynamic input) {
+  factory Task.parse(dynamic input, {required String taskName}) {
     if (input is! Map<dynamic, dynamic>) {
-      throw FormatException('Invalid task definition', input);
+      throw FormatException('Invalid task definition', taskName);
     }
 
     final info = input['info'];
 
     if (info is! String) {
-      throw FormatException('Task `info` must be a string', input);
+      throw FormatException(
+        'Task `info` must be a string',
+        'In task $taskName, info: ${jsonEncode(info)}',
+      );
     }
 
     final params = <String, dynamic>{};
@@ -30,7 +34,10 @@ class Task {
       final inputParams = input['params'];
 
       if (inputParams is! Map<dynamic, dynamic>) {
-        throw FormatException('Task `params` must be a map', input);
+        throw FormatException(
+          'Task `params` must be an object',
+          'In task $taskName, params: ${jsonEncode(params)}',
+        );
       }
 
       for (final entry in inputParams.entries) {
@@ -38,7 +45,10 @@ class Task {
         final paramValue = entry.value;
 
         if (paramKey is! String) {
-          throw FormatException('Task parameter key must be a string', input);
+          throw FormatException(
+            'Task parameter key must be a string',
+            'In task $taskName, params: ${jsonEncode(paramKey)}',
+          );
         }
 
         params[paramKey] = paramValue;
@@ -51,24 +61,20 @@ class Task {
       final inputArgs = input['args'];
 
       if (inputArgs is! List<dynamic>) {
-        throw FormatException('Task `args` must be a list', input);
+        throw FormatException(
+          'Task `args` must be a list',
+          'In task $taskName, args: ${jsonEncode(inputArgs)}',
+        );
       }
 
       for (final entry in inputArgs) {
-        if (entry is! Map<dynamic, dynamic>) {
-          throw FormatException('Task argument must be a map', entry);
-        }
-
-        final argName = entry['name'];
-
-        if (argName is! String) {
-          throw FormatException('Task argument `name` must be a string', entry);
-        }
-
-        final arg = TaskArg.parse(entry);
+        final arg = TaskArg.parse(entry, taskName: taskName);
 
         if (args.any((entry) => entry.name == arg.name)) {
-          throw FormatException('Task argument `name` must be unique', arg);
+          throw FormatException(
+            'Task argument `name` must be unique',
+            'In task $taskName, args: ${jsonEncode(arg.name)}',
+          );
         }
 
         args.add(arg);
@@ -79,7 +85,7 @@ class Task {
       info: info,
       args: args,
       params: params,
-      step: Step.parse(input),
+      step: Step.parse(input, taskName: taskName),
     );
   }
 
@@ -106,9 +112,12 @@ class Task {
 class TaskArg {
   const TaskArg({required this.name, required this.info, required this.type});
 
-  factory TaskArg.parse(dynamic input) {
+  factory TaskArg.parse(dynamic input, {required String taskName}) {
     if (input is! Map<dynamic, dynamic>) {
-      throw FormatException('Invalid task argument definition', input);
+      throw FormatException(
+        'Task argument definition invalid',
+        'In task $taskName, args: ${jsonEncode(input)}',
+      );
     }
 
     final name = input['name'];
@@ -117,15 +126,24 @@ class TaskArg {
     final defaultVal = input['default'];
 
     if (name is! String) {
-      throw FormatException('Argument`name` must be a string', input);
+      throw FormatException(
+        'Task argument `name` must be a string',
+        'In task $taskName, name: ${jsonEncode(name)}',
+      );
     }
 
     if (info is! String) {
-      throw FormatException('Argument `info` must be a string', input);
+      throw FormatException(
+        'Task argument `info` must be a string',
+        'In task $taskName\'s argument $name, info: ${jsonEncode(info)}',
+      );
     }
 
     if (type is! String) {
-      throw FormatException('Argument `type` must be a string', input);
+      throw FormatException(
+        'Task argument `type` must be a string',
+        'In task $taskName\'s argument $name, type: ${jsonEncode(type)}',
+      );
     }
 
     ArgType<dynamic>? argType;
@@ -137,7 +155,10 @@ class TaskArg {
         final inputEnum = input['enum'];
 
         if (inputEnum is! List<dynamic>) {
-          throw FormatException('Argument `enum` must be a list', input);
+          throw FormatException(
+            'Task argument `enum` must be a list',
+            'In task $taskName\'s argument $name, enum: ${jsonEncode(inputEnum)}',
+          );
         }
 
         enumValues = [];
@@ -155,14 +176,19 @@ class TaskArg {
     } else if (type == 'bool') {
       if (defaultVal is! bool?) {
         throw FormatException(
-            'Boolean argument `default` must `true` or `false`', input);
+          'Boolean argument `default` must `true` or `false`',
+          'In task $taskName\'s argument $name, default: ${jsonEncode(defaultVal)}',
+        );
       }
 
       argType = BooleanArg(
         defaultVal: defaultVal,
       );
     } else {
-      throw FormatException('The given argument `type` is unknown', input);
+      throw FormatException(
+        'The given argument `type` is unknown',
+        'In task $taskName\'s argument $name, type: ${jsonEncode(type)}',
+      );
     }
 
     return TaskArg(
@@ -223,52 +249,58 @@ abstract class Step {
   const Step();
 
   factory Step.run({
-    StepCondition? condition,
-    String? name,
-    int? concurrency,
-    required String run,
+    Computable<bool>? condition,
+    Computable<String>? name,
+    Computable<int>? concurrency,
+    required Computable<String> run,
     required Target? target,
     String? workingDirectory,
   }) = StepCommand;
 
   factory Step.steps({
-    StepCondition? condition,
-    String? name,
-    int? concurrency,
+    Computable<bool>? condition,
+    Computable<String>? name,
+    Computable<int>? concurrency,
     required List<Step> steps,
   }) = StepGroup;
 
   factory Step.task({required String task}) = StepTask;
 
   factory Step.conditional(
-      {required StepCondition condition,
+      {required Computable<bool> condition,
       required Step onPass,
       required Step onFail}) = StepConditional;
 
-  factory Step.parse(dynamic input) {
+  factory Step.parse(dynamic input, {required String taskName}) {
     if (input is Map<dynamic, dynamic>) {
       final name = input['name'];
 
       if (name is! String?) {
-        throw FormatException('Step `name` must be a string', input);
+        throw FormatException(
+          'Step `name` must be a string',
+          'In task $taskName, name: ${jsonEncode(name)}',
+        );
       }
 
       if (input.containsKey('run')) {
-        return StepCommand.parse(input, name: name);
+        return StepCommand.parse(input, taskName: taskName, name: name);
       } else if (input.containsKey('steps')) {
-        return StepGroup.parse(input, name: name);
+        return StepGroup.parse(input, taskName: taskName, name: name);
       } else if (input.containsKey('condition')) {
-        return StepConditional.parse(input, name: name);
+        return StepConditional.parse(input, taskName: taskName, name: name);
       }
     } else if (input is String) {
       if (input.startsWith('task:')) {
         return StepTask(task: input.split(':')[1]);
       }
 
-      return StepCommand.parse(input);
+      return StepCommand.parse(input, taskName: taskName);
     }
 
-    throw FormatException('Invalid step definition', input);
+    throw FormatException(
+      'Invalid step definition',
+      'In task $taskName, ${jsonEncode(input)}',
+    );
   }
 
   Future<Execution> execute(CommandContext ctx);
@@ -278,68 +310,66 @@ abstract class Step {
   dynamic toObject();
 }
 
-class StepCondition {
-  StepCondition(this.code);
-
-  String code;
-
-  Future<bool> evaluate(CommandContext ctx) async {
-    return eval<bool>(ctx, code);
-  }
-
-  String toObject() {
-    return code;
-  }
-
-  @override
-  String toString() {
-    return 'StepCondition(code: $code)';
-  }
-}
-
 class StepCommand extends Step {
   StepCommand({
     this.name,
     this.condition,
     required this.run,
-    int? concurrency,
+    Computable<int>? concurrency,
     this.target,
     this.workingDirectory,
-  }) : concurrency = concurrency ?? 1;
+  }) : concurrency = concurrency ?? Computable.value(1);
 
-  factory StepCommand.parse(dynamic input, {String? name}) {
+  factory StepCommand.parse(
+    dynamic input, {
+    required String taskName,
+    String? name,
+  }) {
     if (input is Map<dynamic, dynamic>) {
       final inputCondition = input['if'];
 
-      if (inputCondition is! String?) {
-        throw FormatException('Step `if` must be a string', input);
+      if ((inputCondition is! String?) && (inputCondition is! bool)) {
+        throw FormatException(
+          'Step `if` must be a string or a boolean',
+          'In task $taskName${name != null ? '\'s step ${jsonEncode(name)}' : ''}, if: ${jsonEncode(inputCondition)}',
+        );
       }
 
       final condition =
-          inputCondition != null ? StepCondition(inputCondition) : null;
+          inputCondition != null ? Computable<bool>.from(inputCondition) : null;
 
       var run = input['run'];
 
       if (run == null) {
-        throw FormatException('Step must contain a command to `run`', input);
+        throw FormatException(
+          'Step must contain a command to `run`',
+          'In task $taskName${name != null ? '\'s step ${jsonEncode(name)}' : ''}, run: ${jsonEncode(run)}',
+        );
       } else if (run is List<dynamic>) {
         run = run.join(' ');
       } else if (run is! String) {
         throw FormatException(
-            'Step `run` must be a string or a list of strings', input);
+          'Step `run` must be a string or a list of strings',
+          'In task $taskName${name != null ? '\'s step ${jsonEncode(name)}' : ''}, run: ${jsonEncode(run)}',
+        );
       }
 
       final workingDirectory = input['workingDirectory'];
 
       if (workingDirectory is! String?) {
         throw FormatException(
-            'Step `workingDirectory` must be a string', input);
+          'Step `workingDirectory` must be a string',
+          'In task $taskName${name != null ? '\'s step ${jsonEncode(name)}' : ''}, workingDirectory: ${jsonEncode(workingDirectory)}',
+        );
       }
 
       final concurrency = input['concurrency'];
 
-      if (concurrency is! int?) {
-        throw FormatException('Step `concurrency` must be a number', input);
+      if ((concurrency is! String?) && (concurrency is! int?)) {
+        throw FormatException(
+          'Step `concurrency` must be a string or number',
+          'In task $taskName${name != null ? '\'s step ${jsonEncode(name)}' : ''}, concurrency: ${jsonEncode(concurrency)}',
+        );
       }
 
       Target? target;
@@ -350,27 +380,30 @@ class StepCommand extends Step {
 
       return StepCommand(
         condition: condition,
-        name: name,
-        run: run as String,
-        concurrency: concurrency ?? 1,
+        name: name != null ? Computable<String>.from(name) : null,
+        run: Computable<String>.from(run),
+        concurrency: concurrency != null ? Computable.from(concurrency) : null,
         target: target,
         workingDirectory: workingDirectory,
       );
     } else if (input is String) {
       return StepCommand(
-        name: name,
-        run: input,
-        concurrency: 1,
+        name: name != null ? Computable<String>.from(name) : null,
+        run: Computable<String>.from(input),
+        concurrency: Computable.value(1),
       );
     } else {
-      throw FormatException('Invalid step definition', input);
+      throw FormatException(
+        'Invalid step definition',
+        'In task $name, value must be an object or a string',
+      );
     }
   }
 
-  final String? name;
-  final StepCondition? condition;
-  final String run;
-  final int concurrency;
+  final Computable<String>? name;
+  final Computable<bool>? condition;
+  final Computable<String> run;
+  final Computable<int> concurrency;
   final Target? target;
   final String? workingDirectory;
 
@@ -380,7 +413,7 @@ class StepCommand extends Step {
       return Future.value(true);
     }
 
-    return condition!.evaluate(ctx);
+    return condition!.get(ctx);
   }
 
   @override
@@ -391,8 +424,7 @@ class StepCommand extends Step {
         in target?.resolve(ctx) ?? Stream.value(File(Directory.current.path))) {
       execs.add(
         Execution.cmd(
-          ctx,
-          command: run,
+          command: await run.get(ctx),
           target: target.path,
           workingDirectory: workingDirectory ?? target.path,
         ),
@@ -404,9 +436,8 @@ class StepCommand extends Step {
     }
 
     return Execution.group(
-      ctx,
-      name: name,
-      concurrency: concurrency,
+      name: await name?.get(ctx),
+      concurrency: await concurrency.get(ctx),
       exec: execs,
     );
   }
@@ -428,19 +459,26 @@ class StepGroup extends Step {
   StepGroup({
     this.name,
     this.condition,
-    int? concurrency,
+    Computable<int>? concurrency,
     required this.steps,
-  }) : concurrency = concurrency ?? 1;
+  }) : concurrency = concurrency ?? Computable<int>.value(1);
 
-  factory StepGroup.parse(Map<dynamic, dynamic> input, {String? name}) {
+  factory StepGroup.parse(
+    Map<dynamic, dynamic> input, {
+    required String taskName,
+    String? name,
+  }) {
     final inputCondition = input['if'];
 
-    if (inputCondition is! String?) {
-      throw FormatException('Step `if` must be a string', input);
+    if ((inputCondition is! String?) && (inputCondition is! bool)) {
+      throw FormatException(
+        'Step `if` must be a string or a boolean',
+        'In task $taskName${name != null ? '\'s step ${jsonEncode(name)}' : ''}, if: ${jsonEncode(inputCondition)}',
+      );
     }
 
     final condition =
-        inputCondition != null ? StepCondition(inputCondition) : null;
+        inputCondition != null ? Computable<bool>.from(inputCondition) : null;
 
     final inputSteps = input['steps'];
 
@@ -449,32 +487,38 @@ class StepGroup extends Step {
     }
 
     if (inputSteps is! List<dynamic>) {
-      throw FormatException('Step `steps` must be a list', input);
+      throw FormatException(
+        'Step `steps` must be a list',
+        'In task $taskName${name != null ? '\'s step ${jsonEncode(name)}' : ''}, steps: ${jsonEncode(inputSteps)}',
+      );
     }
 
     final steps = <Step>[];
 
     for (final step in inputSteps) {
-      steps.add(Step.parse(step));
+      steps.add(Step.parse(step, taskName: taskName));
     }
 
     final concurrency = input['concurrency'];
 
-    if (concurrency is! int?) {
-      throw FormatException('Step `concurrency` must be a number', input);
+    if ((concurrency is! String?) && (concurrency is! int?)) {
+      throw FormatException(
+        'Step `concurrency` must be a string or number',
+        'In task $taskName${name != null ? '\'s step ${jsonEncode(name)}' : ''}, concurrency: ${jsonEncode(concurrency)}',
+      );
     }
 
     return StepGroup(
+      name: name != null ? Computable.from(name) : null,
       condition: condition,
-      name: name,
-      concurrency: concurrency ?? 1,
+      concurrency: concurrency != null ? Computable.from(concurrency) : null,
       steps: steps,
     );
   }
 
-  final String? name;
-  final StepCondition? condition;
-  final int concurrency;
+  final Computable<String>? name;
+  final Computable<bool>? condition;
+  final Computable<int> concurrency;
   final List<Step> steps;
 
   @override
@@ -483,7 +527,7 @@ class StepGroup extends Step {
       return Future.value(true);
     }
 
-    return condition!.evaluate(ctx);
+    return condition!.get(ctx);
   }
 
   @override
@@ -499,9 +543,8 @@ class StepGroup extends Step {
     }
 
     return Execution.group(
-      ctx,
-      name: name,
-      concurrency: concurrency,
+      name: await name?.get(ctx),
+      concurrency: await concurrency.get(ctx),
       exec: execs,
     );
   }
@@ -547,60 +590,60 @@ class StepConditional extends Step {
       required this.onFail})
       : super();
 
-  factory StepConditional.parse(Map<dynamic, dynamic> input, {String? name}) {
+  factory StepConditional.parse(Map<dynamic, dynamic> input,
+      {required String taskName, String? name}) {
     final inputCondition = input['condition'];
 
-    if (inputCondition == null) {
-      throw FormatException('Step `condition` must be defined', input);
+    if ((inputCondition is! String) && (inputCondition is! bool)) {
+      throw FormatException(
+        'Step `condition` must be a string or a boolean',
+        'In task $taskName${name != null ? '\'s step ${jsonEncode(name)}' : ''}, condition: ${jsonEncode(inputCondition)}',
+      );
     }
-
-    if (inputCondition is! String) {
-      throw FormatException('Step `condition` must be a string', input);
-    }
-
-    final condition = StepCondition(inputCondition);
 
     var inputPass = input['if'];
 
     if (inputPass != null) {
-      inputPass = Step.parse(inputPass);
+      inputPass = Step.parse(inputPass, taskName: taskName);
     }
 
     var inputFail = input['else'];
 
     if (inputFail != null) {
-      inputFail = Step.parse(inputFail);
+      inputFail = Step.parse(inputFail, taskName: taskName);
     }
 
     if (inputPass == null && inputFail == null) {
-      throw FormatException('Step `if` or `else` must be defined', input);
+      throw FormatException(
+        'Step `if` or `else` must be defined',
+        'In task $taskName${name != null ? '\'s step ${jsonEncode(name)}' : ''}, condition: ${jsonEncode(inputCondition)}',
+      );
     }
 
     return StepConditional(
-      name: name,
-      condition: condition,
+      name: name != null ? Computable.from(name) : null,
+      condition: Computable.from(inputCondition),
       onPass: inputPass as Step?,
       onFail: inputFail as Step?,
     );
   }
 
-  final String? name;
-  final StepCondition condition;
+  final Computable<String>? name;
+  final Computable<bool> condition;
   final Step? onPass;
   final Step? onFail;
 
   @override
   Future<bool> shouldRun(CommandContext ctx) async {
-    return await condition.evaluate(ctx) ? onPass != null : onFail != null;
+    return await condition.get(ctx) ? onPass != null : onFail != null;
   }
 
   @override
   Future<Execution> execute(CommandContext ctx) async {
     return Execution.group(
-      ctx,
-      name: name,
+      name: await name?.get(ctx),
       exec: [
-        if (await condition.evaluate(ctx))
+        if (await condition.get(ctx))
           await onPass!.execute(ctx)
         else
           await onFail!.execute(ctx)

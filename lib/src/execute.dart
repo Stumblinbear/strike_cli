@@ -326,15 +326,13 @@ class Line {
 abstract class Execution {
   Execution();
 
-  factory Execution.group(
-    CommandContext ctx, {
+  factory Execution.group({
     String? name,
     int? concurrency,
     required List<Execution> exec,
   }) = ExecutionGroup;
 
-  factory Execution.cmd(
-    CommandContext ctx, {
+  factory Execution.cmd({
     required String command,
     required String target,
     required String workingDirectory,
@@ -356,10 +354,11 @@ abstract class Execution {
 }
 
 class ExecutionGroup extends Execution {
-  ExecutionGroup(CommandContext ctx,
-      {String? name, int? concurrency, required this.exec})
-      : name = name != null ? evalReplaceString(ctx, name) : null,
-        concurrency = concurrency ?? 1;
+  ExecutionGroup({
+    this.name,
+    int? concurrency,
+    required this.exec,
+  }) : concurrency = concurrency ?? 0;
 
   final String? name;
   final int concurrency;
@@ -380,7 +379,10 @@ class ExecutionGroup extends Execution {
 
   @override
   void update({required int timer}) {
-    exec.where((entry) => !entry.isComplete).take(concurrency).forEach((entry) {
+    exec
+        .where((entry) => !entry.isComplete)
+        .take(concurrency <= 0 ? exec.length : concurrency)
+        .forEach((entry) {
       entry.update(timer: timer);
     });
   }
@@ -508,14 +510,11 @@ class ExecutionGroup extends Execution {
 }
 
 class ExecutionCommand extends Execution {
-  ExecutionCommand(
-    CommandContext ctx, {
+  ExecutionCommand({
     required String command,
     required String target,
     required this.workingDirectory,
-  }) : command = evalReplaceString(ctx, command, target: target)
-            .replaceAll(RegExp(r'\s+\s'), ' ')
-            .trim();
+  }) : command = command.replaceAll(RegExp(r'\s+\s'), ' ').trim();
 
   final String command;
   final String workingDirectory;
