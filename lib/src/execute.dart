@@ -6,7 +6,6 @@ import 'dart:math';
 import 'package:dart_console/dart_console.dart';
 import 'package:strike_cli/src/task.dart';
 import 'package:strike_cli/src/context.dart';
-import 'package:strike_cli/src/eval.dart';
 
 final _ansiRegex = RegExp(r'\x1B\[\??\d?\d?[A-Za-z]');
 
@@ -393,7 +392,7 @@ class ExecutionGroup extends Execution {
       yield* _createHeader(includeCounter: false);
     }
 
-    if (exec.length == 0) {
+    if (exec.isEmpty) {
       yield Line()
         ..color(ConsoleColor.brightBlack)
         ..add(name != null ? '|  ' : '')
