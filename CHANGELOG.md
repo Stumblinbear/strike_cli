@@ -1,3 +1,7 @@
+## 0.1.1
+
+- Fix target path not accessible in commands
+
 ## 0.0.2
 
 - Better errors when misconfigured
