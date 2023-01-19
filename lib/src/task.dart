@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:glob/glob.dart';
 import 'package:strike_cli/src/target.dart';
 import 'package:strike_cli/src/context.dart';
 import 'package:strike_cli/src/eval.dart';
