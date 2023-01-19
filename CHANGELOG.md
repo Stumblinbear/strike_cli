@@ -1,3 +1,7 @@
+## 0.3.1
+
+- Reduce path package version requirement
+
 ## 0.3.0
 
 - Config searching for workspaces
