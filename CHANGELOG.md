@@ -1,3 +1,7 @@
+## 0.2.1
+
+- Fix parsing of evaluated booleans
+
 ## 0.2.0
 
 - Add task filtering option
