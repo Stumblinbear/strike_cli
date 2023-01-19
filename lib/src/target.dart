@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:glob/glob.dart';
 import 'package:glob/list_local_fs.dart';
 import 'package:strike_cli/src/context.dart';
+import 'package:path/path.dart' as path;
 
 class Target {
   const Target({required this.resolvers});
@@ -144,11 +145,11 @@ class GlobPathResolver implements PathResolver {
   @override
   Stream<File> resolve(CommandContext ctx) async* {
     if (glob.pattern == "." || glob.pattern == "./") {
-      yield File(".");
+      yield File(ctx.workspace.path);
     }
 
-    await for (final entity in glob.list()) {
-      yield File(entity.path);
+    await for (final entity in glob.list(root: ctx.workspace.path)) {
+      yield File(path.join(ctx.workspace.path, entity.path));
     }
   }
 

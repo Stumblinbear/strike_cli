@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:dart_console/dart_console.dart';
 import 'package:strike_cli/src/task.dart';
 import 'package:strike_cli/src/context.dart';
+import 'package:path/path.dart' as path;
 
 final _ansiRegex = RegExp(r'\x1B\[\??\d?\d?[A-Za-z]');
 
@@ -93,7 +94,7 @@ Future<void> executeTask(
   final exec = await task.step.execute(ctx);
 
   if (!showProgress) {
-    await for (final entry in exec.run()) {
+    await for (final entry in exec.run(ctx)) {
       console
         ..writeLine(entry.toString())
         ..resetColorAttributes();
@@ -125,11 +126,11 @@ Future<void> executeTask(
     );
 
     while (!forceQuit && !isComplete) {
-      exec.update(timer: timer);
+      exec.update(ctx, timer: timer);
 
       var currentI = 0;
 
-      await for (final entry in exec.getDisplayOutput(timer: timer)) {
+      await for (final entry in exec.getDisplayOutput(ctx, timer: timer)) {
         var line = entry.toString();
 
         final lineLength = line.replaceAll(_ansiRegex, '').length;
@@ -344,11 +345,11 @@ abstract class Execution {
   bool get isComplete;
   bool get hasError;
 
-  void update({required int timer});
+  void update(CommandContext ctx, {required int timer});
 
-  Stream<Line> run();
+  Stream<Line> run(CommandContext ctx);
 
-  Stream<Line> getDisplayOutput({required int timer});
+  Stream<Line> getDisplayOutput(CommandContext ctx, {required int timer});
 
   Stream<Line> getOutput();
 
@@ -380,17 +381,17 @@ class ExecutionGroup extends Execution {
   bool get hasError => exec.any((entry) => entry.hasError);
 
   @override
-  void update({required int timer}) {
+  void update(CommandContext ctx, {required int timer}) {
     exec
         .where((entry) => !entry.isComplete)
         .take(concurrency <= 0 ? exec.length : concurrency)
         .forEach((entry) {
-      entry.update(timer: timer);
+      entry.update(ctx, timer: timer);
     });
   }
 
   @override
-  Stream<Line> run() async* {
+  Stream<Line> run(CommandContext ctx) async* {
     if (name != null) {
       yield* _createHeader(includeCounter: false);
     }
@@ -406,7 +407,7 @@ class ExecutionGroup extends Execution {
 
     if (concurrency == 1) {
       for (final entry in exec) {
-        yield* entry.run().map(
+        yield* entry.run(ctx).map(
               (line) => Line()
                 ..color(ConsoleColor.brightBlack)
                 ..add(name != null ? '|  ' : '')
@@ -418,7 +419,7 @@ class ExecutionGroup extends Execution {
 
       for (final entry in exec) {
         // We have to convert this to a list so that the streams will complete without `await`ing it
-        futures.add(entry.run().toList());
+        futures.add(entry.run(ctx).toList());
 
         if (futures.length == concurrency) {
           yield* Stream.fromIterable(await futures.removeAt(0)).map(
@@ -470,7 +471,8 @@ class ExecutionGroup extends Execution {
   }
 
   @override
-  Stream<Line> getDisplayOutput({required int timer}) async* {
+  Stream<Line> getDisplayOutput(CommandContext ctx,
+      {required int timer}) async* {
     if (name != null) {
       yield* _createHeader(includeCounter: true);
     }
@@ -485,7 +487,7 @@ class ExecutionGroup extends Execution {
     }
 
     for (final entry in exec) {
-      yield* entry.getDisplayOutput(timer: timer).map(
+      yield* entry.getDisplayOutput(ctx, timer: timer).map(
             (line) => Line()
               ..color(ConsoleColor.brightBlack)
               ..add(name != null ? '|  ' : '')
@@ -534,16 +536,16 @@ class ExecutionCommand extends Execution {
   bool get hasError => exitCode != null && exitCode != 0;
 
   @override
-  Stream<Line> run() async* {
-    await update(timer: 0);
+  Stream<Line> run(CommandContext ctx) async* {
+    await update(ctx, timer: 0);
 
     await _process.exitCode;
 
-    yield* getDisplayOutput(timer: 0);
+    yield* getDisplayOutput(ctx, timer: 0);
   }
 
   @override
-  Future<void> update({required int timer}) async {
+  Future<void> update(CommandContext ctx, {required int timer}) async {
     if (isRunning || isComplete) return;
 
     startedAt = timer;
@@ -579,7 +581,8 @@ class ExecutionCommand extends Execution {
   }
 
   @override
-  Stream<Line> getDisplayOutput({required int timer}) async* {
+  Stream<Line> getDisplayOutput(CommandContext ctx,
+      {required int timer}) async* {
     final color = isComplete
         ? hasError
             ? ConsoleColor.brightRed
@@ -604,7 +607,9 @@ class ExecutionCommand extends Execution {
       ..add('$status ${command}')
       ..color(ConsoleColor.brightBlack)
       ..style(italic: true)
-      ..add(workingDirectory != '.' ? ' (in $workingDirectory)' : '');
+      ..add(workingDirectory != ctx.workspace.path
+          ? ' (in ${path.relative(workingDirectory, from: ctx.workspace.path)})'
+          : '');
   }
 
   @override

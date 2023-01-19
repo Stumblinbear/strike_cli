@@ -6,9 +6,26 @@ import 'dart:io';
 import 'package:strike_cli/src/target.dart';
 import 'package:strike_cli/src/task.dart';
 import 'package:yaml/yaml.dart';
+import 'package:path/path.dart' as path;
 
-Future<StrikeConfig> loadConfig() async {
-  final file = new File('strike.yaml');
+Future<Directory> locateWorkspace() async {
+  Directory? dir = Directory.current;
+
+  while (dir != null) {
+    var file = File(path.join(dir.path, 'strike.yaml'));
+
+    if (file.existsSync()) {
+      return dir;
+    }
+
+    dir = dir.parent;
+  }
+
+  return Directory.current;
+}
+
+Future<StrikeConfig> loadConfig(Directory workspace) async {
+  var file = File(path.join(workspace.path, 'strike.yaml'));
 
   final yamlString = await file.readAsString();
 

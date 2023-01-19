@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:args/command_runner.dart';
 import 'package:dart_console/dart_console.dart';
 import 'package:strike_cli/src/commands/commands.dart';
@@ -9,6 +11,7 @@ const description = 'A dart CLI task runner.';
 
 class StrikeCliCommandRunner extends CommandRunner<int> {
   StrikeCliCommandRunner(
+    this.workspace,
     this.config,
   ) : super(executableName, description) {
     argParser
@@ -25,6 +28,7 @@ class StrikeCliCommandRunner extends CommandRunner<int> {
     for (final entry in config.tasks.entries) {
       addCommand(
         TaskCommand(
+          workspace: workspace,
           config: config,
           name: entry.key,
           task: entry.value,
@@ -33,6 +37,7 @@ class StrikeCliCommandRunner extends CommandRunner<int> {
     }
   }
 
+  final Directory workspace;
   final StrikeConfig config;
 
   @override
@@ -49,9 +54,7 @@ class StrikeCliCommandRunner extends CommandRunner<int> {
         ..setForegroundColor(ConsoleColor.brightRed)
         ..writeLine(e.message)
         ..resetColorAttributes()
-        ..writeLine(stackTrace)
-        ..writeLine()
-        ..writeLine(usage);
+        ..writeLine(stackTrace);
 
       return 64;
     } on UsageException catch (e) {

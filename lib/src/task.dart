@@ -6,6 +6,7 @@ import 'package:strike_cli/src/target.dart';
 import 'package:strike_cli/src/context.dart';
 import 'package:strike_cli/src/eval.dart';
 import 'package:strike_cli/src/execute.dart';
+import 'package:path/path.dart' as path;
 
 class Task {
   const Task({
@@ -422,7 +423,7 @@ class StepCommand extends Step {
     final execs = <Execution>[];
 
     await for (final target
-        in target?.resolve(ctx) ?? Stream.value(File(Directory.current.path))) {
+        in target?.resolve(ctx) ?? Stream.value(File(ctx.workspace.path))) {
       if (!ctx.shouldRunFor(target.path)) {
         continue;
       }
@@ -431,7 +432,10 @@ class StepCommand extends Step {
         Execution.cmd(
           command: await run.get(ctx, target: target.path),
           target: target.path,
-          workingDirectory: workingDirectory ?? target.path,
+          workingDirectory:
+              workingDirectory != null
+                  ? path.join(ctx.workspace.path, workingDirectory)
+                  : path.join(ctx.workspace.path, target.path),
         ),
       );
     }

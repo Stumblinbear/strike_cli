@@ -1,12 +1,16 @@
+import 'dart:io';
+
 import 'package:args/command_runner.dart';
 import 'package:glob/glob.dart';
 import 'package:strike_cli/src/config.dart';
 import 'package:strike_cli/src/task.dart';
 import 'package:strike_cli/src/context.dart';
 import 'package:strike_cli/src/execute.dart';
+import 'package:path/path.dart' as path;
 
 class TaskCommand extends Command<int> {
   TaskCommand({
+    required this.workspace,
     required this.config,
     required this.name,
     required this.task,
@@ -34,6 +38,7 @@ class TaskCommand extends Command<int> {
     }
   }
 
+  final Directory workspace;
   final StrikeConfig config;
 
   final String name;
@@ -66,11 +71,12 @@ class TaskCommand extends Command<int> {
 
     await executeTask(
       CommandContext(
+        workspace: workspace,
         config: config,
         task: task,
         args: args,
         targetFilter: globalResults!['target'] != null
-            ? Glob(globalResults!['target'])
+            ? Glob(globalResults!['target'], recursive: true)
             : null,
       ),
       task,
