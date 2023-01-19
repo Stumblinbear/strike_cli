@@ -1,6 +1,6 @@
 name: strike_cli
 description: A dart CLI task runner.
-version: 0.3.1
+version: 0.3.2
 repository: https://github.com/Stumblinbear/strike_cli
 
 environment:
@@ -14,3 +14,6 @@ dependencies:
   glob: ^2.1.1
 
   dart_console: ^1.1.2
+
+executables:
+  strike: strike_cli

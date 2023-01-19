@@ -1,3 +1,7 @@
+## 0.3.2
+
+- Add `executables` entry to `pubspec.yaml`
+
 ## 0.3.1
 
 - Reduce path package version requirement
