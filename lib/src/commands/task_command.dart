@@ -1,4 +1,5 @@
 import 'package:args/command_runner.dart';
+import 'package:glob/glob.dart';
 import 'package:strike_cli/src/config.dart';
 import 'package:strike_cli/src/task.dart';
 import 'package:strike_cli/src/context.dart';
@@ -68,6 +69,9 @@ class TaskCommand extends Command<int> {
         config: config,
         task: task,
         args: args,
+        targetFilter: globalResults!['target'] != null
+            ? Glob(globalResults!['target'])
+            : null,
       ),
       task,
       showProgress: globalResults!['progress']! as bool,

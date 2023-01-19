@@ -11,11 +11,16 @@ class StrikeCliCommandRunner extends CommandRunner<int> {
   StrikeCliCommandRunner(
     this.config,
   ) : super(executableName, description) {
-    argParser.addFlag(
-      'progress',
-      help: 'Update the console with the status of ongoing processes.',
-      defaultsTo: true,
-    );
+    argParser
+      ..addFlag(
+        'progress',
+        help: 'Update the console with the status of ongoing processes.',
+        defaultsTo: true,
+      )
+      ..addOption(
+        'target',
+        help: 'Only run tasks that match the given target.',
+      );
 
     for (final entry in config.tasks.entries) {
       addCommand(

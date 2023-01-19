@@ -9,7 +9,9 @@ class Target {
 
   factory Target.parse(dynamic input) {
     return Target(
-      resolvers: input is List<dynamic> ? input.map(TargetResolver.parse).toList() : [TargetResolver.parse(input)],
+      resolvers: input is List<dynamic>
+          ? input.map(TargetResolver.parse).toList()
+          : [TargetResolver.parse(input)],
     );
   }
 
@@ -54,13 +56,19 @@ class TargetResolver {
       final filterValue = input['filter'] ?? <dynamic>[];
 
       return TargetResolver(
-        resolvers: (forValue is! List<dynamic> ? [forValue] : forValue).map(PathResolver.parse).toList(),
-        filters: (filterValue is! List<dynamic> ? [filterValue] : filterValue).map(TargetFilter.parse).toList(),
+        resolvers: (forValue is! List<dynamic> ? [forValue] : forValue)
+            .map(PathResolver.parse)
+            .toList(),
+        filters: (filterValue is! List<dynamic> ? [filterValue] : filterValue)
+            .map(TargetFilter.parse)
+            .toList(),
       );
     } else if (input is List<dynamic>) {
-      return TargetResolver(resolvers: input.map(PathResolver.parse).toList(), filters: []);
+      return TargetResolver(
+          resolvers: input.map(PathResolver.parse).toList(), filters: []);
     } else {
-      return TargetResolver(resolvers: [PathResolver.parse(input)], filters: []);
+      return TargetResolver(
+          resolvers: [PathResolver.parse(input)], filters: []);
     }
   }
 
@@ -135,6 +143,10 @@ class GlobPathResolver implements PathResolver {
 
   @override
   Stream<File> resolve(CommandContext ctx) async* {
+    if (glob.pattern == "." || glob.pattern == "./") {
+      yield File(".");
+    }
+
     await for (final entity in glob.list()) {
       yield File(entity.path);
     }

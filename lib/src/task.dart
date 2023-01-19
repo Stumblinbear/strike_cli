@@ -2,17 +2,19 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:glob/glob.dart';
 import 'package:strike_cli/src/target.dart';
 import 'package:strike_cli/src/context.dart';
 import 'package:strike_cli/src/eval.dart';
 import 'package:strike_cli/src/execute.dart';
 
 class Task {
-  const Task(
-      {required this.info,
-      required this.args,
-      required this.params,
-      required this.step});
+  const Task({
+    required this.info,
+    required this.args,
+    required this.params,
+    required this.step,
+  });
 
   factory Task.parse(dynamic input, {required String taskName}) {
     if (input is! Map<dynamic, dynamic>) {
@@ -303,9 +305,9 @@ abstract class Step {
     );
   }
 
-  Future<Execution> execute(CommandContext ctx);
-
   Future<bool> shouldRun(CommandContext ctx);
+
+  Future<Execution> execute(CommandContext ctx);
 
   dynamic toObject();
 }
@@ -422,6 +424,10 @@ class StepCommand extends Step {
 
     await for (final target
         in target?.resolve(ctx) ?? Stream.value(File(Directory.current.path))) {
+      if (!ctx.shouldRunFor(target.path)) {
+        continue;
+      }
+
       execs.add(
         Execution.cmd(
           command: await run.get(ctx, target: target.path),

@@ -1,3 +1,8 @@
+## 0.2.0
+
+- Add task filtering option
+- Fix inability to target the current directory
+
 ## 0.1.1
 
 - Fix target path not accessible in commands

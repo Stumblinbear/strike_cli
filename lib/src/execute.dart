@@ -74,8 +74,11 @@ const _asciiProgressLoop = [
   '⠀⡀'
 ];
 
-Future<void> executeTask(CommandContext ctx, Task task,
-    {required bool showProgress}) async {
+Future<void> executeTask(
+  CommandContext ctx,
+  Task task, {
+  required bool showProgress,
+}) async {
   final console = Console();
 
   if (!await task.step.shouldRun(ctx)) {
