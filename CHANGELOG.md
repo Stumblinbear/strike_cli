@@ -1,6 +1,8 @@
 ## 0.3.2
 
 - Add `executables` entry to `pubspec.yaml`
+- Fix an infinite loop if no `strike.yaml` is found
+- Print a better error when no `strike.yaml` is found
 
 ## 0.3.1
 
