@@ -18,7 +18,11 @@ Future<Directory> locateWorkspace() async {
       return dir;
     }
 
-    dir = dir.parent;
+    if (path.isWithin(dir.parent.path, dir.path)) {
+      dir = dir.parent;
+    } else {
+      break;
+    }
   }
 
   return Directory.current;
