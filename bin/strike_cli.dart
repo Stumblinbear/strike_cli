@@ -23,9 +23,22 @@ Future<void> main(List<String> args) async {
     await _flushThenExit(1);
   } on TimeoutException {
     await _flushThenExit(1);
+  } on FileSystemException catch (err) {
+    if (err.osError?.errorCode == 2) {
+      Console()
+        ..setForegroundColor(ConsoleColor.brightRed)
+        ..writeLine(
+            "Couldn't locate a `strike.yaml` file in the current (nor any higher) directories.")
+        ..resetColorAttributes();
+
+      await _flushThenExit(1);
+    } else {
+      rethrow;
+    }
   }
 
-  await _flushThenExit(await StrikeCliCommandRunner(workspace, config).run(args));
+  await _flushThenExit(
+      await StrikeCliCommandRunner(workspace, config).run(args));
 }
 
 /// Flushes the stdout and stderr streams, then exits the program with the given
