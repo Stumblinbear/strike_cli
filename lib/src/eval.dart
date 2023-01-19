@@ -67,6 +67,18 @@ class Computable<T> {
           return parsed as T;
         }
       }
+    } else if (T == bool) {
+      if (result is String) {
+        var parsed = result == "true"
+            ? true
+            : result == "false"
+                ? false
+                : null;
+
+        if (parsed != null) {
+          return parsed as T;
+        }
+      }
     }
 
     throw FormatException(
