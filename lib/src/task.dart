@@ -424,7 +424,7 @@ class StepCommand extends Step {
         in target?.resolve(ctx) ?? Stream.value(File(Directory.current.path))) {
       execs.add(
         Execution.cmd(
-          command: await run.get(ctx),
+          command: await run.get(ctx, target: target.path),
           target: target.path,
           workingDirectory: workingDirectory ?? target.path,
         ),
