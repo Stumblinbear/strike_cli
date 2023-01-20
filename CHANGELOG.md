@@ -1,3 +1,7 @@
+## 0.3.3
+
+- Fix naieve command argument splitting
+
 ## 0.3.2
 
 - Add `executables` entry to `pubspec.yaml`

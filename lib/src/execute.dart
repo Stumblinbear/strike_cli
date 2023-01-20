@@ -136,8 +136,8 @@ Future<void> executeTask(
         final lineLength = line.replaceAll(_ansiRegex, '').length;
 
         if (lineLength > console.windowWidth) {
-          line = line.substring(
-              0, (console.windowWidth - 3) + (line.length - lineLength));
+          // This is too naieve (will cut off more if more colors are present), but it works for now
+          line = line.substring(0, (console.windowWidth - 3));
           line += '...';
         }
 
@@ -544,13 +544,47 @@ class ExecutionCommand extends Execution {
     yield* getDisplayOutput(ctx, timer: 0);
   }
 
+  List<String> _parseArguments(String commandLine) {
+    var args = <String>[];
+
+    for (var i = 0; i < commandLine.length; i++) {
+      var c = commandLine[i];
+
+      if (c == '"') {
+        var end = commandLine.indexOf('"', i + 1);
+
+        if (end == -1) {
+          end = commandLine.length;
+        }
+
+        args.add(commandLine.substring(i + 1, end));
+
+        i = end;
+      } else if (c == ' ') {
+        continue;
+      } else {
+        var end = commandLine.indexOf(' ', i + 1);
+
+        if (end == -1) {
+          end = commandLine.length;
+        }
+
+        args.add(commandLine.substring(i, end));
+
+        i = end;
+      }
+    }
+
+    return args;
+  }
+
   @override
   Future<void> update(CommandContext ctx, {required int timer}) async {
     if (isRunning || isComplete) return;
 
     startedAt = timer;
 
-    final cmdSegments = command.split(' ');
+    final cmdSegments = _parseArguments(command);
 
     final process = await Process.start(
       cmdSegments[0],
