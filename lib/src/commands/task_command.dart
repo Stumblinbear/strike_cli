@@ -6,7 +6,6 @@ import 'package:strike_cli/src/config.dart';
 import 'package:strike_cli/src/task.dart';
 import 'package:strike_cli/src/context.dart';
 import 'package:strike_cli/src/execute.dart';
-import 'package:path/path.dart' as path;
 
 class TaskCommand extends Command<int> {
   TaskCommand({
