@@ -68,7 +68,7 @@ class TaskCommand extends Command<int> {
           : argType.defaultVal;
     }
 
-    await executeTask(
+    return await executeTask(
       CommandContext(
         workspace: workspace,
         config: config,
@@ -81,7 +81,5 @@ class TaskCommand extends Command<int> {
       task,
       showProgress: globalResults!['progress']! as bool,
     );
-
-    return 0;
   }
 }

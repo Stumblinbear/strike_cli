@@ -75,7 +75,7 @@ const _asciiProgressLoop = [
   '⠀⡀'
 ];
 
-Future<void> executeTask(
+Future<int> executeTask(
   CommandContext ctx,
   Task task, {
   required bool showProgress,
@@ -88,7 +88,7 @@ Future<void> executeTask(
       ..writeErrorLine('No commands to run')
       ..resetColorAttributes();
 
-    return;
+    return 0;
   }
 
   final exec = await task.step.execute(ctx);
@@ -226,7 +226,7 @@ Future<void> executeTask(
       ..rawMode = false;
 
     if (forceQuit) {
-      exit(1);
+      return 1;
     }
   }
 
@@ -275,8 +275,10 @@ Future<void> executeTask(
       ..resetColorAttributes()
       ..writeLine();
 
-    exit(1);
+    return 1;
   }
+
+  return 0;
 }
 
 class Line {
