@@ -1,3 +1,8 @@
+## 0.4.0
+
+- Add env variables to steps
+- Split single quotes in commands
+
 ## 0.3.3
 
 - Fix naieve command argument splitting
