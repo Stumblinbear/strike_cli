@@ -38,7 +38,7 @@ class Task {
       if (inputParams is! Map<dynamic, dynamic>) {
         throw FormatException(
           'Task `params` must be an object',
-          'In task $taskName, params: ${jsonEncode(params)}',
+          'In task $taskName, params: ${jsonEncode(inputParams)}',
         );
       }
 
@@ -257,6 +257,7 @@ abstract class Step {
     required Computable<String> run,
     required Target? target,
     String? workingDirectory,
+    Map<String, String>? env,
   }) = StepCommand;
 
   factory Step.steps({
@@ -268,10 +269,11 @@ abstract class Step {
 
   factory Step.task({required String task}) = StepTask;
 
-  factory Step.conditional(
-      {required Computable<bool> condition,
-      required Step onPass,
-      required Step onFail}) = StepConditional;
+  factory Step.conditional({
+    required Computable<bool> condition,
+    required Step onPass,
+    required Step onFail,
+  }) = StepConditional;
 
   factory Step.parse(dynamic input, {required String taskName}) {
     if (input is Map<dynamic, dynamic>) {
@@ -320,6 +322,7 @@ class StepCommand extends Step {
     Computable<int>? concurrency,
     this.target,
     this.workingDirectory,
+    this.env,
   }) : concurrency = concurrency ?? Computable.value(1);
 
   factory StepCommand.parse(
@@ -356,6 +359,15 @@ class StepCommand extends Step {
         );
       }
 
+      final concurrency = input['concurrency'];
+
+      if ((concurrency is! String?) && (concurrency is! int?)) {
+        throw FormatException(
+          'Step `concurrency` must be a string or number',
+          'In task $taskName${name != null ? '\'s step ${jsonEncode(name)}' : ''}, concurrency: ${jsonEncode(concurrency)}',
+        );
+      }
+
       final workingDirectory = input['workingDirectory'];
 
       if (workingDirectory is! String?) {
@@ -365,13 +377,31 @@ class StepCommand extends Step {
         );
       }
 
-      final concurrency = input['concurrency'];
+      final env = <String, String>{};
 
-      if ((concurrency is! String?) && (concurrency is! int?)) {
-        throw FormatException(
-          'Step `concurrency` must be a string or number',
-          'In task $taskName${name != null ? '\'s step ${jsonEncode(name)}' : ''}, concurrency: ${jsonEncode(concurrency)}',
-        );
+      if (input.containsKey('env')) {
+        final inputEnv = input['env'];
+
+        if (inputEnv is! Map<dynamic, dynamic>) {
+          throw FormatException(
+            'Task `env` must be an object',
+            'In task $taskName, params: ${jsonEncode(inputEnv)}',
+          );
+        }
+
+        for (final entry in inputEnv.entries) {
+          final envKey = entry.key;
+          final envValue = entry.value;
+
+          if (envKey is! String) {
+            throw FormatException(
+              'Task env key must be a string',
+              'In task $taskName, params: ${jsonEncode(envKey)}',
+            );
+          }
+
+          env[envKey] = envValue.toString();
+        }
       }
 
       Target? target;
@@ -387,6 +417,7 @@ class StepCommand extends Step {
         concurrency: concurrency != null ? Computable.from(concurrency) : null,
         target: target,
         workingDirectory: workingDirectory,
+        env: env,
       );
     } else if (input is String) {
       return StepCommand(
@@ -408,6 +439,7 @@ class StepCommand extends Step {
   final Computable<int> concurrency;
   final Target? target;
   final String? workingDirectory;
+  final Map<String, String>? env;
 
   @override
   Future<bool> shouldRun(CommandContext ctx) {
@@ -432,10 +464,10 @@ class StepCommand extends Step {
         Execution.cmd(
           command: await run.get(ctx, target: target.path),
           target: target.path,
-          workingDirectory:
-              workingDirectory != null
-                  ? path.join(ctx.workspace.path, workingDirectory)
-                  : path.join(ctx.workspace.path, target.path),
+          workingDirectory: workingDirectory != null
+              ? path.join(ctx.workspace.path, workingDirectory)
+              : path.join(ctx.workspace.path, target.path),
+          env: env,
         ),
       );
     }

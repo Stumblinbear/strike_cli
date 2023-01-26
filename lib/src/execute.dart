@@ -341,6 +341,7 @@ abstract class Execution {
     required String command,
     required String target,
     required String workingDirectory,
+    required Map<String, String>? env,
   }) = ExecutionCommand;
 
   bool get isRunning;
@@ -520,10 +521,12 @@ class ExecutionCommand extends Execution {
     required String command,
     required String target,
     required this.workingDirectory,
+    required this.env,
   }) : command = command.replaceAll(RegExp(r'\s+\s'), ' ').trim();
 
   final String command;
   final String workingDirectory;
+  final Map<String, String>? env;
 
   final output = <String>[];
   int? exitCode = null;
@@ -552,8 +555,8 @@ class ExecutionCommand extends Execution {
     for (var i = 0; i < commandLine.length; i++) {
       var c = commandLine[i];
 
-      if (c == '"') {
-        var end = commandLine.indexOf('"', i + 1);
+      if (c == '"' || c == "'") {
+        var end = commandLine.indexOf(c, i + 1);
 
         if (end == -1) {
           end = commandLine.length;
@@ -593,6 +596,7 @@ class ExecutionCommand extends Execution {
       cmdSegments.sublist(1),
       workingDirectory: workingDirectory,
       runInShell: Platform.isWindows,
+      environment: env,
     );
 
     isRunning = true;
