@@ -592,7 +592,7 @@ class ExecutionCommand extends Execution {
     final cmdSegments = _parseArguments(command);
 
     final process = await Process.start(
-      cmdSegments[0],
+      cmdSegments[0].replaceAll('/', path.separator),
       cmdSegments.sublist(1),
       workingDirectory: workingDirectory,
       runInShell: Platform.isWindows,
