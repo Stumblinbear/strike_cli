@@ -1,3 +1,7 @@
+## 0.4.1
+
+- Fail fast when using --no-progress
+
 ## 0.4.0
 
 - Add env variables to steps
