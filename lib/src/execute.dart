@@ -98,6 +98,10 @@ Future<int> executeTask(
       console
         ..writeLine(entry.toString())
         ..resetColorAttributes();
+
+      if (exec.isComplete) {
+        break;
+      }
     }
   } else {
     var timer = 0;
@@ -114,7 +118,6 @@ Future<int> executeTask(
       ..rawMode = true;
 
     var forceQuit = false;
-    var isComplete = false;
 
     // Listen for CTRL+C
     stdin.listen(
@@ -125,7 +128,7 @@ Future<int> executeTask(
       },
     );
 
-    while (!forceQuit && !isComplete) {
+    while (!forceQuit) {
       exec.update(ctx, timer: timer);
 
       var currentI = 0;
@@ -209,7 +212,7 @@ Future<int> executeTask(
       printFullScreen = false;
 
       if (exec.isComplete) {
-        isComplete = true;
+        break;
       }
 
       await Future<void>.delayed(const Duration(milliseconds: 100));
