@@ -1,3 +1,8 @@
+## 0.5.1
+
+- Turns out windows needs to be run in a shell for many commands
+- Fix accidental revert of quoted args
+
 ## 0.5.0
 
 - Run windows commands outside of shell
