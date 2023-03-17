@@ -1,3 +1,8 @@
+## 0.5.0
+
+- Run windows commands outside of shell
+- Add `succeed` configuration, to allow a task to succeed even if it fails
+
 ## 0.4.2
 
 - Fix quotes being omitted during command parsing
