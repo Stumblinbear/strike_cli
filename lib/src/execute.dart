@@ -570,7 +570,11 @@ class ExecutionCommand extends Execution {
 
         if (end == -1) {
           end = commandLine.length;
+        } else {
+          end++;
         }
+
+        args.add(commandLine.substring(i, end));
 
         i = end;
       } else if (c == ' ') {
@@ -599,41 +603,33 @@ class ExecutionCommand extends Execution {
 
     final cmdSegments = _parseArguments(command);
 
-    try {
-      final process = await Process.start(
-        cmdSegments[0].replaceAll('/', path.separator),
-        cmdSegments.sublist(1),
-        workingDirectory: workingDirectory,
-        environment: env,
-      );
+    final process = await Process.start(
+      cmdSegments[0].replaceAll('/', path.separator),
+      cmdSegments.sublist(1),
+      workingDirectory: workingDirectory,
+      runInShell: Platform.isWindows,
+      environment: env,
+    );
 
-      isRunning = true;
+    isRunning = true;
 
-      process.stdout
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())
-          .listen(output.add);
-      process.stderr
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())
-          .listen(output.add);
+    process.stdout
+        .transform(utf8.decoder)
+        .transform(const LineSplitter())
+        .listen(output.add);
+    process.stderr
+        .transform(utf8.decoder)
+        .transform(const LineSplitter())
+        .listen(output.add);
 
-      _process = process;
+    _process = process;
 
-      unawaited(
-        process.exitCode.then((value) {
-          exitCode = value;
-          isRunning = false;
-        }),
-      );
-    } on ProcessException catch (err) {
-      exitCode = err.errorCode;
-      isRunning = false;
-
-      Stream.fromIterable([err.toString()])
-          .transform(const LineSplitter())
-          .listen(output.add);
-    }
+    unawaited(
+      process.exitCode.then((value) {
+        exitCode = value;
+        isRunning = false;
+      }),
+    );
   }
 
   @override
