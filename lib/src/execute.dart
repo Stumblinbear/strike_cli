@@ -345,6 +345,7 @@ abstract class Execution {
     required String target,
     required String workingDirectory,
     required Map<String, String>? env,
+    required SucceedOn succeed,
   }) = ExecutionCommand;
 
   bool get isRunning;
@@ -525,11 +526,14 @@ class ExecutionCommand extends Execution {
     required String target,
     required this.workingDirectory,
     required this.env,
+    required this.succeed,
   }) : command = command.replaceAll(RegExp(r'\s+\s'), ' ').trim();
 
   final String command;
   final String workingDirectory;
   final Map<String, String>? env;
+
+  final SucceedOn succeed;
 
   final output = <String>[];
   int? exitCode = null;
@@ -541,7 +545,10 @@ class ExecutionCommand extends Execution {
   late Process _process;
 
   bool get isComplete => exitCode != null;
-  bool get hasError => exitCode != null && exitCode != 0;
+  bool get hasError =>
+      succeed != SucceedOn.always &&
+      exitCode != null &&
+      (succeed == SucceedOn.onPass ? exitCode != 0 : exitCode == 0);
 
   @override
   Stream<Line> run(CommandContext ctx) async* {
@@ -563,11 +570,7 @@ class ExecutionCommand extends Execution {
 
         if (end == -1) {
           end = commandLine.length;
-        } else {
-          end++;
         }
-
-        args.add(commandLine.substring(i, end));
 
         i = end;
       } else if (c == ' ') {
@@ -596,33 +599,41 @@ class ExecutionCommand extends Execution {
 
     final cmdSegments = _parseArguments(command);
 
-    final process = await Process.start(
-      cmdSegments[0].replaceAll('/', path.separator),
-      cmdSegments.sublist(1),
-      workingDirectory: workingDirectory,
-      runInShell: Platform.isWindows,
-      environment: env,
-    );
+    try {
+      final process = await Process.start(
+        cmdSegments[0].replaceAll('/', path.separator),
+        cmdSegments.sublist(1),
+        workingDirectory: workingDirectory,
+        environment: env,
+      );
 
-    isRunning = true;
+      isRunning = true;
 
-    process.stdout
-        .transform(utf8.decoder)
-        .transform(const LineSplitter())
-        .listen(output.add);
-    process.stderr
-        .transform(utf8.decoder)
-        .transform(const LineSplitter())
-        .listen(output.add);
+      process.stdout
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .listen(output.add);
+      process.stderr
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .listen(output.add);
 
-    _process = process;
+      _process = process;
 
-    unawaited(
-      process.exitCode.then((value) {
-        exitCode = value;
-        isRunning = false;
-      }),
-    );
+      unawaited(
+        process.exitCode.then((value) {
+          exitCode = value;
+          isRunning = false;
+        }),
+      );
+    } on ProcessException catch (err) {
+      exitCode = err.errorCode;
+      isRunning = false;
+
+      Stream.fromIterable([err.toString()])
+          .transform(const LineSplitter())
+          .listen(output.add);
+    }
   }
 
   @override
@@ -639,7 +650,7 @@ class ExecutionCommand extends Execution {
     final progressLength = _asciiProgressLoop.first.length;
 
     final status = isComplete
-        ? this.exitCode != 0
+        ? this.hasError
             ? ' ' * (progressLength - 1) + '✗'
             : ' ' * (progressLength - 1) + '✓'
         : isRunning

@@ -87,7 +87,12 @@ class Task {
       info: info,
       args: args,
       params: params,
-      step: Step.parse(input, taskName: taskName),
+      step: Step.parse(
+        input,
+        taskName: taskName,
+        target: null,
+        env: null,
+      ),
     );
   }
 
@@ -256,8 +261,8 @@ abstract class Step {
     Computable<int>? concurrency,
     required Computable<String> run,
     required Target? target,
+    required Map<String, String>? env,
     String? workingDirectory,
-    Map<String, String>? env,
   }) = StepCommand;
 
   factory Step.steps({
@@ -275,7 +280,12 @@ abstract class Step {
     required Step onFail,
   }) = StepConditional;
 
-  factory Step.parse(dynamic input, {required String taskName}) {
+  factory Step.parse(
+    dynamic input, {
+    required String taskName,
+    required Target? target,
+    required Map<String, String>? env,
+  }) {
     if (input is Map<dynamic, dynamic>) {
       final name = input['name'];
 
@@ -286,19 +296,73 @@ abstract class Step {
         );
       }
 
+      if (input.containsKey('target')) {
+        target = Target.parse(input['target']);
+      }
+
+      final env = <String, String>{};
+
+      if (input.containsKey('env')) {
+        final inputEnv = input['env'];
+
+        if (inputEnv is! Map<dynamic, dynamic>) {
+          throw FormatException(
+            'Task `env` must be an object',
+            'In task $taskName, params: ${jsonEncode(inputEnv)}',
+          );
+        }
+
+        for (final entry in inputEnv.entries) {
+          final envKey = entry.key;
+          final envValue = entry.value;
+
+          if (envKey is! String) {
+            throw FormatException(
+              'Task env key must be a string',
+              'In task $taskName, params: ${jsonEncode(envKey)}',
+            );
+          }
+
+          env[envKey] = envValue.toString();
+        }
+      }
+
       if (input.containsKey('run')) {
-        return StepCommand.parse(input, taskName: taskName, name: name);
+        return StepCommand.parse(
+          input,
+          taskName: taskName,
+          name: name,
+          target: target,
+          env: env,
+        );
       } else if (input.containsKey('steps')) {
-        return StepGroup.parse(input, taskName: taskName, name: name);
+        return StepGroup.parse(
+          input,
+          taskName: taskName,
+          name: name,
+          target: target,
+          env: env,
+        );
       } else if (input.containsKey('condition')) {
-        return StepConditional.parse(input, taskName: taskName, name: name);
+        return StepConditional.parse(
+          input,
+          taskName: taskName,
+          name: name,
+          target: target,
+          env: env,
+        );
       }
     } else if (input is String) {
       if (input.startsWith('task:')) {
         return StepTask(task: input.split(':')[1]);
       }
 
-      return StepCommand.parse(input, taskName: taskName);
+      return StepCommand.parse(
+        input,
+        taskName: taskName,
+        target: target,
+        env: env,
+      );
     }
 
     throw FormatException(
@@ -314,6 +378,16 @@ abstract class Step {
   dynamic toObject();
 }
 
+enum SucceedOn {
+  onPass('on-pass'),
+  onFail('on-fail'),
+  always('always');
+
+  const SucceedOn(this.jsonValue);
+
+  final String jsonValue;
+}
+
 class StepCommand extends Step {
   StepCommand({
     this.name,
@@ -323,12 +397,15 @@ class StepCommand extends Step {
     this.target,
     this.workingDirectory,
     this.env,
+    this.succeed = SucceedOn.onPass,
   }) : concurrency = concurrency ?? Computable.value(1);
 
   factory StepCommand.parse(
     dynamic input, {
     required String taskName,
     String? name,
+    required Target? target,
+    required Map<String, String>? env,
   }) {
     if (input is Map<dynamic, dynamic>) {
       final inputCondition = input['if'];
@@ -377,37 +454,22 @@ class StepCommand extends Step {
         );
       }
 
-      final env = <String, String>{};
+      var succeed = SucceedOn.onPass;
 
-      if (input.containsKey('env')) {
-        final inputEnv = input['env'];
+      if (input.containsKey('succeed')) {
+        final inputSucceed = SucceedOn.values.cast<SucceedOn?>().firstWhere(
+              (element) => element?.jsonValue == input['succeed'],
+              orElse: () => null,
+            );
 
-        if (inputEnv is! Map<dynamic, dynamic>) {
+        if (inputSucceed == null) {
           throw FormatException(
-            'Task `env` must be an object',
-            'In task $taskName, params: ${jsonEncode(inputEnv)}',
+            'Step `succeed` must be one of ${jsonEncode(SucceedOn.values.map((e) => e.jsonValue))}}',
+            'In task $taskName${name != null ? '\'s step ${jsonEncode(name)}' : ''}, succeed: ${jsonEncode(inputSucceed)}',
           );
         }
 
-        for (final entry in inputEnv.entries) {
-          final envKey = entry.key;
-          final envValue = entry.value;
-
-          if (envKey is! String) {
-            throw FormatException(
-              'Task env key must be a string',
-              'In task $taskName, params: ${jsonEncode(envKey)}',
-            );
-          }
-
-          env[envKey] = envValue.toString();
-        }
-      }
-
-      Target? target;
-
-      if (input.containsKey('target')) {
-        target = Target.parse(input['target']);
+        succeed = inputSucceed;
       }
 
       return StepCommand(
@@ -418,12 +480,14 @@ class StepCommand extends Step {
         target: target,
         workingDirectory: workingDirectory,
         env: env,
+        succeed: succeed,
       );
     } else if (input is String) {
       return StepCommand(
         name: name != null ? Computable<String>.from(name) : null,
         run: Computable<String>.from(input),
         concurrency: Computable.value(1),
+        target: target,
       );
     } else {
       throw FormatException(
@@ -440,6 +504,8 @@ class StepCommand extends Step {
   final Target? target;
   final String? workingDirectory;
   final Map<String, String>? env;
+
+  final SucceedOn succeed;
 
   @override
   Future<bool> shouldRun(CommandContext ctx) {
@@ -468,6 +534,7 @@ class StepCommand extends Step {
               ? path.join(ctx.workspace.path, workingDirectory)
               : path.join(ctx.workspace.path, target.path),
           env: env,
+          succeed: succeed,
         ),
       );
     }
@@ -508,6 +575,8 @@ class StepGroup extends Step {
     Map<dynamic, dynamic> input, {
     required String taskName,
     String? name,
+    required Target? target,
+    required Map<String, String>? env,
   }) {
     final inputCondition = input['if'];
 
@@ -537,7 +606,12 @@ class StepGroup extends Step {
     final steps = <Step>[];
 
     for (final step in inputSteps) {
-      steps.add(Step.parse(step, taskName: taskName));
+      steps.add(Step.parse(
+        step,
+        taskName: taskName,
+        target: target,
+        env: env,
+      ));
     }
 
     final concurrency = input['concurrency'];
@@ -631,8 +705,13 @@ class StepConditional extends Step {
       required this.onFail})
       : super();
 
-  factory StepConditional.parse(Map<dynamic, dynamic> input,
-      {required String taskName, String? name}) {
+  factory StepConditional.parse(
+    Map<dynamic, dynamic> input, {
+    required String taskName,
+    String? name,
+    required Target? target,
+    required Map<String, String>? env,
+  }) {
     final inputCondition = input['condition'];
 
     if ((inputCondition is! String) && (inputCondition is! bool)) {
@@ -645,13 +724,23 @@ class StepConditional extends Step {
     var inputPass = input['if'];
 
     if (inputPass != null) {
-      inputPass = Step.parse(inputPass, taskName: taskName);
+      inputPass = Step.parse(
+        inputPass,
+        taskName: taskName,
+        target: target,
+        env: env,
+      );
     }
 
     var inputFail = input['else'];
 
     if (inputFail != null) {
-      inputFail = Step.parse(inputFail, taskName: taskName);
+      inputFail = Step.parse(
+        inputFail,
+        taskName: taskName,
+        target: target,
+        env: env,
+      );
     }
 
     if (inputPass == null && inputFail == null) {
