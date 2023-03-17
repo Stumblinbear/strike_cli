@@ -563,9 +563,11 @@ class ExecutionCommand extends Execution {
 
         if (end == -1) {
           end = commandLine.length;
+        } else {
+          end++;
         }
 
-        args.add(commandLine.substring(i + 1, end));
+        args.add(commandLine.substring(i, end));
 
         i = end;
       } else if (c == ' ') {

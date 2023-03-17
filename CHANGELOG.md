@@ -1,3 +1,7 @@
+## 0.4.2
+
+- Fix quotes being omitted during command parsing
+
 ## 0.4.1
 
 - Fail fast when using --no-progress
