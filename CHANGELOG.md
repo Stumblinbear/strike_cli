@@ -1,3 +1,7 @@
+## 0.5.2
+
+- Use relative paths for targets
+
 ## 0.5.1
 
 - Turns out windows needs to be run in a shell for many commands
