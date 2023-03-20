@@ -526,13 +526,17 @@ class StepCommand extends Step {
         continue;
       }
 
+      final workingDirectory = this.workingDirectory != null
+          ? path.join(ctx.workspace.path, this.workingDirectory)
+          : path.join(ctx.workspace.path, target.path);
+
+      final targetPath = path.relative(target.path, from: workingDirectory).replaceAll('/', path.separator);
+
       execs.add(
         Execution.cmd(
-          command: await run.get(ctx, target: target.path),
-          target: target.path,
-          workingDirectory: workingDirectory != null
-              ? path.join(ctx.workspace.path, workingDirectory)
-              : path.join(ctx.workspace.path, target.path),
+          command: await run.get(ctx, target: targetPath),
+          target: targetPath,
+          workingDirectory: workingDirectory,
           env: env,
           succeed: succeed,
         ),
