@@ -100,12 +100,20 @@ class Computable<T> {
 Future<dynamic> _eval(CommandContext ctx, String code, {String? target}) async {
   final port = ReceivePort();
 
+  if (code.contains('_isolate') || code.contains('_convert')) {
+    throw ArgumentError.value(
+        code, 'code', 'cannot contain `_isolate` or `_convert`');
+  }
+
   await Isolate.spawnUri(
     Uri.dataFromString(
       '''
-    import 'dart:isolate';
+    import 'dart:isolate' as _isolate;
+    import 'dart:convert' as _convert;
 
-    void main(_, SendPort port) {
+    String base64(String input) => _convert.base64.encode(_convert.utf8.encode(input));
+
+    void main(_, _isolate.SendPort port) {
       var params = ${jsonEncode(ctx.task.params)};
       var args = ${jsonEncode(ctx.args)};
       var target = ${target != null ? "'${target.replaceAll(r'\', '/')}'" : 'null'};
