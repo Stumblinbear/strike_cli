@@ -1,3 +1,8 @@
+## 0.6.0
+
+- Lock down access to imports during evaluation
+- Make a base64 encoder available to commands
+
 ## 0.5.2
 
 - Use relative paths for targets
