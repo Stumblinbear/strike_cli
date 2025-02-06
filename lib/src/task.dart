@@ -344,6 +344,11 @@ abstract class Step {
           workingDirectory: workingDirectory,
           env: env,
         );
+      } else {
+        throw FormatException(
+          'Invalid step definition, must contain either `run`, `steps`, or `condition`',
+          'In task $taskName, ${jsonEncode(input)}',
+        );
       }
     } else if (input is String) {
       if (input.startsWith('task:')) {
@@ -610,11 +615,7 @@ class StepGroup extends Step {
       workingDirectory = inputWorkingDirectory;
     }
 
-    final inputSteps = input['steps'];
-
-    if (inputSteps == null) {
-      throw ArgumentError.notNull('steps');
-    }
+    final inputSteps = input['steps'] ?? [];
 
     if (inputSteps is! List<dynamic>) {
       throw FormatException(
