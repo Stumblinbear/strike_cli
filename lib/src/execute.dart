@@ -16,6 +16,12 @@ const _ansiEraseInLineAll = '\x1b[2K';
 String ansiUp(int lines) => '\x1B[${lines}A';
 String ansiDown(int lines) => '\x1B[${lines}B';
 
+const _indicatorLength = 2;
+
+const _kSuccessIndicator = '✓';
+const _kFailureIndicator = '✗';
+const _kInfoIndicator = '▪';
+
 const _asciiProgressLoop = [
   '⢀⠀',
   '⡀⠀',
@@ -81,15 +87,6 @@ Future<int> executeTask(
   required bool showProgress,
 }) async {
   final console = Console();
-
-  if (!await task.step.shouldRun(ctx)) {
-    console
-      ..setForegroundColor(ConsoleColor.brightBlack)
-      ..writeErrorLine('No commands to run')
-      ..resetColorAttributes();
-
-    return 0;
-  }
 
   final exec = await task.step.execute(ctx);
 
@@ -317,10 +314,6 @@ class Line {
     line.write('\x1b[${styles.join(";")}m');
   }
 
-  void prefix(String? text) {
-    if (text == null) return;
-  }
-
   void add(Object? text) {
     if (text == null) return;
 
@@ -364,6 +357,8 @@ abstract class Execution {
 }
 
 class ExecutionGroup extends Execution {
+  static const _kGroupPrefix = '| ';
+
   ExecutionGroup({
     this.name,
     int? concurrency,
@@ -406,8 +401,9 @@ class ExecutionGroup extends Execution {
     if (exec.isEmpty) {
       yield Line()
         ..color(ConsoleColor.brightBlack)
-        ..add(name != null ? '|  ' : '')
-        ..add('No commands to run');
+        ..add(name != null ? _kGroupPrefix : '')
+        ..add(' ' * (_indicatorLength - 1))
+        ..add('$_kInfoIndicator No commands to run');
 
       return;
     }
@@ -417,7 +413,7 @@ class ExecutionGroup extends Execution {
         yield* entry.run(ctx).map(
               (line) => Line()
                 ..color(ConsoleColor.brightBlack)
-                ..add(name != null ? '|  ' : '')
+                ..add(name != null ? _kGroupPrefix : '')
                 ..add(line),
             );
       }
@@ -432,7 +428,7 @@ class ExecutionGroup extends Execution {
           yield* Stream.fromIterable(await futures.removeAt(0)).map(
             (line) => Line()
               ..color(ConsoleColor.brightBlack)
-              ..add(name != null ? '|  ' : '')
+              ..add(name != null ? _kGroupPrefix : '')
               ..add(line),
           );
         }
@@ -442,7 +438,7 @@ class ExecutionGroup extends Execution {
         yield* Stream.fromIterable(await futures.removeAt(0)).map(
           (line) => Line()
             ..color(ConsoleColor.brightBlack)
-            ..add(name != null ? '|  ' : '')
+            ..add(name != null ? _kGroupPrefix : '')
             ..add(line),
         );
       }
@@ -478,8 +474,10 @@ class ExecutionGroup extends Execution {
   }
 
   @override
-  Stream<Line> getDisplayOutput(CommandContext ctx,
-      {required int timer}) async* {
+  Stream<Line> getDisplayOutput(
+    CommandContext ctx, {
+    required int timer,
+  }) async* {
     if (name != null) {
       yield* _createHeader(includeCounter: true);
     }
@@ -487,8 +485,9 @@ class ExecutionGroup extends Execution {
     if (exec.length == 0) {
       yield Line()
         ..color(ConsoleColor.brightBlack)
-        ..add(name != null ? '|  ' : '')
-        ..add('No commands to run');
+        ..add(name != null ? _kGroupPrefix : '')
+        ..add(' ' * (_indicatorLength - 1))
+        ..add('$_kInfoIndicator No commands to run');
 
       return;
     }
@@ -497,7 +496,7 @@ class ExecutionGroup extends Execution {
       yield* entry.getDisplayOutput(ctx, timer: timer).map(
             (line) => Line()
               ..color(ConsoleColor.brightBlack)
-              ..add(name != null ? '|  ' : '')
+              ..add(name != null ? _kGroupPrefix : '')
               ..add(line),
           );
     }
@@ -633,8 +632,10 @@ class ExecutionCommand extends Execution {
   }
 
   @override
-  Stream<Line> getDisplayOutput(CommandContext ctx,
-      {required int timer}) async* {
+  Stream<Line> getDisplayOutput(
+    CommandContext ctx, {
+    required int timer,
+  }) async* {
     final color = isComplete
         ? hasError
             ? ConsoleColor.brightRed
@@ -643,16 +644,14 @@ class ExecutionCommand extends Execution {
             ? ConsoleColor.brightYellow
             : ConsoleColor.brightBlack;
 
-    final progressLength = _asciiProgressLoop.first.length;
-
     final status = isComplete
         ? this.hasError
-            ? ' ' * (progressLength - 1) + '✗'
-            : ' ' * (progressLength - 1) + '✓'
+            ? ' ' * (_indicatorLength - 1) + _kFailureIndicator
+            : ' ' * (_indicatorLength - 1) + _kSuccessIndicator
         : isRunning
             ? _asciiProgressLoop[
                 (timer - startedAt) % _asciiProgressLoop.length]
-            : ' ' * progressLength;
+            : ' ' * (_indicatorLength - 1) + _kInfoIndicator;
 
     yield Line()
       ..color(color)
