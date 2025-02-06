@@ -91,6 +91,7 @@ class Task {
         input,
         taskName: taskName,
         target: null,
+        workingDirectory: null,
         env: null,
       ),
     );
@@ -255,35 +256,11 @@ class BooleanArg extends ArgType<bool> {
 abstract class Step {
   const Step();
 
-  factory Step.run({
-    Computable<bool>? condition,
-    Computable<String>? name,
-    Computable<int>? concurrency,
-    required Computable<String> run,
-    required Target? target,
-    required Map<String, String>? env,
-    String? workingDirectory,
-  }) = StepCommand;
-
-  factory Step.steps({
-    Computable<bool>? condition,
-    Computable<String>? name,
-    Computable<int>? concurrency,
-    required List<Step> steps,
-  }) = StepGroup;
-
-  factory Step.task({required String task}) = StepTask;
-
-  factory Step.conditional({
-    required Computable<bool> condition,
-    required Step onPass,
-    required Step onFail,
-  }) = StepConditional;
-
   factory Step.parse(
     dynamic input, {
     required String taskName,
     required Target? target,
+    required String? workingDirectory,
     required Map<String, String>? env,
   }) {
     if (input is Map<dynamic, dynamic>) {
@@ -298,6 +275,19 @@ abstract class Step {
 
       if (input.containsKey('target')) {
         target = Target.parse(input['target']);
+      }
+
+      if (input.containsKey('workingDirectory')) {
+        final inputWorkingDirectory = input['workingDirectory'];
+
+        if (inputWorkingDirectory is! String?) {
+          throw FormatException(
+            'Step `workingDirectory` must be a string or null',
+            'In task $taskName, workingDirectory: ${jsonEncode(workingDirectory)}',
+          );
+        }
+
+        workingDirectory = inputWorkingDirectory;
       }
 
       final env = <String, String>{};
@@ -333,6 +323,7 @@ abstract class Step {
           taskName: taskName,
           name: name,
           target: target,
+          workingDirectory: workingDirectory,
           env: env,
         );
       } else if (input.containsKey('steps')) {
@@ -341,6 +332,7 @@ abstract class Step {
           taskName: taskName,
           name: name,
           target: target,
+          workingDirectory: workingDirectory,
           env: env,
         );
       } else if (input.containsKey('condition')) {
@@ -349,6 +341,7 @@ abstract class Step {
           taskName: taskName,
           name: name,
           target: target,
+          workingDirectory: workingDirectory,
           env: env,
         );
       }
@@ -360,7 +353,9 @@ abstract class Step {
       return StepCommand.parse(
         input,
         taskName: taskName,
+        name: null,
         target: target,
+        workingDirectory: workingDirectory,
         env: env,
       );
     }
@@ -403,8 +398,9 @@ class StepCommand extends Step {
   factory StepCommand.parse(
     dynamic input, {
     required String taskName,
-    String? name,
+    required String? name,
     required Target? target,
+    required String? workingDirectory,
     required Map<String, String>? env,
   }) {
     if (input is Map<dynamic, dynamic>) {
@@ -445,13 +441,17 @@ class StepCommand extends Step {
         );
       }
 
-      final workingDirectory = input['workingDirectory'];
+      if (input.containsKey('workingDirectory')) {
+        final inputWorkingDirectory = input['workingDirectory'];
 
-      if (workingDirectory is! String?) {
-        throw FormatException(
-          'Step `workingDirectory` must be a string',
-          'In task $taskName${name != null ? '\'s step ${jsonEncode(name)}' : ''}, workingDirectory: ${jsonEncode(workingDirectory)}',
-        );
+        if (inputWorkingDirectory is! String?) {
+          throw FormatException(
+            'Step `workingDirectory` must be a string or null',
+            'In task $taskName${name != null ? '\'s step ${jsonEncode(name)}' : ''}, workingDirectory: ${jsonEncode(workingDirectory)}',
+          );
+        }
+
+        workingDirectory = inputWorkingDirectory;
       }
 
       var succeed = SucceedOn.onPass;
@@ -530,7 +530,9 @@ class StepCommand extends Step {
           ? path.join(ctx.workspace.path, this.workingDirectory)
           : path.join(ctx.workspace.path, target.path);
 
-      final targetPath = path.relative(target.path, from: workingDirectory).replaceAll('/', path.separator);
+      final targetPath = path
+          .relative(target.path, from: workingDirectory)
+          .replaceAll('/', path.separator);
 
       execs.add(
         Execution.cmd(
@@ -569,17 +571,18 @@ class StepCommand extends Step {
 
 class StepGroup extends Step {
   StepGroup({
-    this.name,
-    this.condition,
-    Computable<int>? concurrency,
+    required this.name,
+    required this.condition,
+    required Computable<int>? concurrency,
     required this.steps,
   }) : concurrency = concurrency ?? Computable<int>.value(1);
 
   factory StepGroup.parse(
     Map<dynamic, dynamic> input, {
     required String taskName,
-    String? name,
+    required String? name,
     required Target? target,
+    required String? workingDirectory,
     required Map<String, String>? env,
   }) {
     final inputCondition = input['if'];
@@ -593,6 +596,19 @@ class StepGroup extends Step {
 
     final condition =
         inputCondition != null ? Computable<bool>.from(inputCondition) : null;
+
+    if (input.containsKey('workingDirectory')) {
+      final inputWorkingDirectory = input['workingDirectory'];
+
+      if (inputWorkingDirectory is! String?) {
+        throw FormatException(
+          'Step `workingDirectory` must be a string or null',
+          'In task $taskName, workingDirectory: ${jsonEncode(workingDirectory)}',
+        );
+      }
+
+      workingDirectory = inputWorkingDirectory;
+    }
 
     final inputSteps = input['steps'];
 
@@ -614,6 +630,7 @@ class StepGroup extends Step {
         step,
         taskName: taskName,
         target: target,
+        workingDirectory: workingDirectory,
         env: env,
       ));
     }
@@ -712,10 +729,24 @@ class StepConditional extends Step {
   factory StepConditional.parse(
     Map<dynamic, dynamic> input, {
     required String taskName,
-    String? name,
+    required String? name,
     required Target? target,
+    required String? workingDirectory,
     required Map<String, String>? env,
   }) {
+    if (input.containsKey('workingDirectory')) {
+      final inputWorkingDirectory = input['workingDirectory'];
+
+      if (inputWorkingDirectory is! String?) {
+        throw FormatException(
+          'Step `workingDirectory` must be a string or null',
+          'In task $taskName, workingDirectory: ${jsonEncode(workingDirectory)}',
+        );
+      }
+
+      workingDirectory = inputWorkingDirectory;
+    }
+
     final inputCondition = input['condition'];
 
     if ((inputCondition is! String) && (inputCondition is! bool)) {
@@ -732,6 +763,7 @@ class StepConditional extends Step {
         inputPass,
         taskName: taskName,
         target: target,
+        workingDirectory: workingDirectory,
         env: env,
       );
     }
@@ -743,6 +775,7 @@ class StepConditional extends Step {
         inputFail,
         taskName: taskName,
         target: target,
+        workingDirectory: workingDirectory,
         env: env,
       );
     }
