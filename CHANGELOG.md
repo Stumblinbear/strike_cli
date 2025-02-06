@@ -1,3 +1,11 @@
+## 0.7.0
+
+- Update SDK constraints
+- Propagate `workingDirectory` to nested definitions
+- Use ▪ for pending and skipped commands
+- Remove initial check for runnable commands so that the "No commands to run" format is consistent in all cases
+- Improve errors when a step configuration is invalid
+
 ## 0.6.0
 
 - Lock down access to imports during evaluation
