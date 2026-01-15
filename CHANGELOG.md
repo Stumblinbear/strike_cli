@@ -1,3 +1,7 @@
+## 0.7.1
+
+- Support computed targets
+
 ## 0.7.0
 
 - Update SDK constraints
