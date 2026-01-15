@@ -4,6 +4,7 @@ import 'package:glob/glob.dart';
 import 'package:glob/list_local_fs.dart';
 import 'package:strike_cli/src/context.dart';
 import 'package:path/path.dart' as path;
+import 'package:strike_cli/src/eval.dart';
 
 class Target {
   const Target({required this.resolvers});
@@ -58,7 +59,7 @@ class TargetResolver {
 
       return TargetResolver(
         resolvers: (forValue is! List<dynamic> ? [forValue] : forValue)
-            .map(PathResolver.parse)
+            .map((e) => Computable.from(e, parser: PathResolver.parse))
             .toList(),
         filters: (filterValue is! List<dynamic> ? [filterValue] : filterValue)
             .map(TargetFilter.parse)
@@ -66,20 +67,26 @@ class TargetResolver {
       );
     } else if (input is List<dynamic>) {
       return TargetResolver(
-          resolvers: input.map(PathResolver.parse).toList(), filters: []);
+          resolvers: input
+              .map((e) => Computable.from(e, parser: PathResolver.parse))
+              .toList(),
+          filters: []);
     } else {
       return TargetResolver(
-          resolvers: [PathResolver.parse(input)], filters: []);
+          resolvers: [Computable.from(input, parser: PathResolver.parse)],
+          filters: []);
     }
   }
 
-  final List<PathResolver> resolvers;
+  final List<Computable<PathResolver>> resolvers;
   final List<TargetFilter> filters;
 
   Stream<File> resolve(CommandContext ctx) async* {
-    for (final pathResolver in resolvers) {
+    for (final pathResolver in resolvers.map((e) => e.get(ctx))) {
+      final resolver = await pathResolver;
+
       nextPath:
-      await for (final file in pathResolver.resolve(ctx)) {
+      await for (final file in resolver.resolve(ctx)) {
         for (final filter in filters) {
           if (!await filter.match(file)) {
             continue nextPath;
