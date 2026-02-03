@@ -261,7 +261,7 @@ abstract class Step {
     required String taskName,
     required Target? target,
     required String? workingDirectory,
-    required Map<String, String>? env,
+    required Map<String, Computable<String>>? env,
   }) {
     if (input is Map<dynamic, dynamic>) {
       final name = input['name'];
@@ -290,7 +290,7 @@ abstract class Step {
         workingDirectory = inputWorkingDirectory;
       }
 
-      final env = <String, String>{};
+      final env = <String, Computable<String>>{};
 
       if (input.containsKey('env')) {
         final inputEnv = input['env'];
@@ -313,7 +313,7 @@ abstract class Step {
             );
           }
 
-          env[envKey] = envValue.toString();
+          env[envKey] = Computable<String>.from(envValue);
         }
       }
 
@@ -406,7 +406,7 @@ class StepCommand extends Step {
     required String? name,
     required Target? target,
     required String? workingDirectory,
-    required Map<String, String>? env,
+    required Map<String, Computable<String>>? env,
   }) {
     if (input is Map<dynamic, dynamic>) {
       final inputCondition = input['if'];
@@ -508,7 +508,7 @@ class StepCommand extends Step {
   final Computable<int> concurrency;
   final Target? target;
   final String? workingDirectory;
-  final Map<String, String>? env;
+  final Map<String, Computable<String>>? env;
 
   final SucceedOn succeed;
 
@@ -538,6 +538,12 @@ class StepCommand extends Step {
       final targetPath = path
           .relative(target.path, from: workingDirectory)
           .replaceAll('/', path.separator);
+
+      final env = <String, String>{};
+
+      for (final entry in (this.env ?? {}).entries) {
+        env[entry.key] = await entry.value.get(ctx);
+      }
 
       execs.add(
         Execution.cmd(
@@ -588,7 +594,7 @@ class StepGroup extends Step {
     required String? name,
     required Target? target,
     required String? workingDirectory,
-    required Map<String, String>? env,
+    required Map<String, Computable<String>>? env,
   }) {
     final inputCondition = input['if'];
 
@@ -733,7 +739,7 @@ class StepConditional extends Step {
     required String? name,
     required Target? target,
     required String? workingDirectory,
-    required Map<String, String>? env,
+    required Map<String, Computable<String>>? env,
   }) {
     if (input.containsKey('workingDirectory')) {
       final inputWorkingDirectory = input['workingDirectory'];

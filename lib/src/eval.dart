@@ -100,9 +100,11 @@ class Computable<T> {
 Future<dynamic> _eval(CommandContext ctx, String code, {String? target}) async {
   final port = ReceivePort();
 
-  if (code.contains('_isolate') || code.contains('_convert')) {
+  if (code.contains('_isolate') ||
+      code.contains('_convert') ||
+      code.contains('__var')) {
     throw ArgumentError.value(
-        code, 'code', 'cannot contain `_isolate` or `_convert`');
+        code, 'code', 'cannot contain `_isolate`, `_convert` or `__var`');
   }
 
   await Isolate.spawnUri(
@@ -119,7 +121,7 @@ Future<dynamic> _eval(CommandContext ctx, String code, {String? target}) async {
       var target = ${target != null ? "'${target.replaceAll(r'\', '/')}'" : 'null'};
       var platform = "${Platform.operatingSystem}";
 
-      port.send(${jsonEncode(code)});
+      port.send(${jsonEncode(code.replaceAll(r'\$', r'__var'))});
     }
     ''',
       mimeType: 'application/dart',
@@ -128,5 +130,11 @@ Future<dynamic> _eval(CommandContext ctx, String code, {String? target}) async {
     port.sendPort,
   );
 
-  return port.first;
+  var result = await port.first;
+
+  if (result is String) {
+    result = result.replaceAll(r'__var', r'$');
+  }
+
+  return result;
 }

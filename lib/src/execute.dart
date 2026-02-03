@@ -561,34 +561,57 @@ class ExecutionCommand extends Execution {
   List<String> _parseArguments(String commandLine) {
     var args = <String>[];
 
-    for (var i = 0; i < commandLine.length; i++) {
-      var c = commandLine[i];
+    var isEscaped = false;
+    var isQuoted = false;
 
-      if (c == '"' || c == "'") {
-        var end = commandLine.indexOf(c, i + 1);
+    final buffer = StringBuffer();
 
-        if (end == -1) {
-          end = commandLine.length;
-        } else {
-          end++;
+    for (final c in commandLine.split('')) {
+      if (!isEscaped) {
+        if (c == r'\') {
+          isEscaped = true;
+
+          continue;
         }
 
-        args.add(commandLine.substring(i, end));
+        if (c == '"') {
+          if (isQuoted) {
+            args.add(buffer.toString());
+            buffer.clear();
 
-        i = end;
-      } else if (c == ' ') {
-        continue;
+            isQuoted = false;
+
+            continue;
+          }
+
+          isQuoted = true;
+
+          continue;
+        }
+
+        if (!isQuoted) {
+          if (c == ' ') {
+            if (buffer.isNotEmpty) {
+              args.add(buffer.toString());
+              buffer.clear();
+            }
+
+            continue;
+          }
+        }
       } else {
-        var end = commandLine.indexOf(' ', i + 1);
-
-        if (end == -1) {
-          end = commandLine.length;
+        if (c != '"') {
+          buffer.write(r'\');
         }
 
-        args.add(commandLine.substring(i, end));
-
-        i = end;
+        isEscaped = false;
       }
+
+      buffer.write(c);
+    }
+
+    if (buffer.isNotEmpty) {
+      args.add(buffer.toString());
     }
 
     return args;

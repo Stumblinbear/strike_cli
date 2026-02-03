@@ -1,3 +1,7 @@
+## 0.7.2
+
+- Support computed environment variables
+
 ## 0.7.1
 
 - Support computed targets
