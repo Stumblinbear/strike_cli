@@ -1,3 +1,7 @@
+## 0.7.3
+
+- Fix escaping of spaces in commands
+
 ## 0.7.2
 
 - Support computed environment variables

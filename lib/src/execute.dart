@@ -588,23 +588,23 @@ class ExecutionCommand extends Execution {
 
           continue;
         }
-
-        if (!isQuoted) {
-          if (c == ' ') {
-            if (buffer.isNotEmpty) {
-              args.add(buffer.toString());
-              buffer.clear();
-            }
-
-            continue;
-          }
-        }
       } else {
         if (c != '"') {
           buffer.write(r'\');
         }
 
         isEscaped = false;
+      }
+
+      if (!isQuoted) {
+        if (c == ' ') {
+          if (buffer.isNotEmpty) {
+            args.add(buffer.toString());
+            buffer.clear();
+          }
+
+          continue;
+        }
       }
 
       buffer.write(c);
