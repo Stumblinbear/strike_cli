@@ -149,6 +149,8 @@ Future<dynamic> _eval(CommandContext ctx, String code, {String? target}) async {
     void main(_, _isolate.SendPort port) {
       var params = ${jsonEncode(ctx.task.params)};
       var args = <String, dynamic>${jsonEncode(ctx.args).replaceAll(r'$', r'\$')};
+      // An empty JSON list decodes to List<dynamic>, whose map() rejects quote.
+      args['rest'] = List<String>.from(args['rest']);
       var target = ${target != null ? "'${target.replaceAll(r'\', '/')}'" : 'null'};
       var platform = "${Platform.operatingSystem}";
 

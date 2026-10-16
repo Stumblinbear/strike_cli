@@ -1,3 +1,7 @@
+## 0.7.6
+
+- Fix `args['rest'].map(quote)` failing when no positional arguments are given
+
 ## 0.7.5
 
 - Add `quote`, which embeds a value in a command as exactly one argument
