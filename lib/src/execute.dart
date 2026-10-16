@@ -526,9 +526,15 @@ class ExecutionCommand extends Execution {
     required this.workingDirectory,
     required this.env,
     required this.succeed,
-  }) : command = command.replaceAll(RegExp(r'\s+\s'), ' ').trim();
+  }) : command = command.trim();
 
+  /// The command line as written, which [_parseArguments] splits into the
+  /// program and its arguments.
   final String command;
+
+  /// [command] with each run of whitespace shown as one space, for the
+  /// status line.
+  String get label => command.replaceAll(RegExp(r'\s+'), ' ');
   final String workingDirectory;
   final Map<String, String>? env;
 
@@ -558,59 +564,64 @@ class ExecutionCommand extends Execution {
     yield* getDisplayOutput(ctx, timer: 0);
   }
 
+  /// Splits [commandLine] into arguments. Whitespace outside double quotes
+  /// separates arguments, and quoted text joins the text around it.
+  /// Backslashes are literal except before a double quote, as in Windows
+  /// command lines: each pair yields one backslash, and an odd one left over
+  /// makes the quote literal, so `C:\dir\file` needs no escaping. `quote` in
+  /// the evaluation prelude (eval.dart) writes this form.
   List<String> _parseArguments(String commandLine) {
-    var args = <String>[];
-
-    var isEscaped = false;
-    var isQuoted = false;
-
+    final args = <String>[];
     final buffer = StringBuffer();
 
+    var inArgument = false;
+    var isQuoted = false;
+    var backslashes = 0;
+
     for (final c in commandLine.split('')) {
-      if (!isEscaped) {
-        if (c == r'\') {
-          isEscaped = true;
+      if (c == r'\') {
+        backslashes++;
+        inArgument = true;
 
-          continue;
-        }
-
-        if (c == '"') {
-          if (isQuoted) {
-            args.add(buffer.toString());
-            buffer.clear();
-
-            isQuoted = false;
-
-            continue;
-          }
-
-          isQuoted = true;
-
-          continue;
-        }
-      } else {
-        if (c != '"') {
-          buffer.write(r'\');
-        }
-
-        isEscaped = false;
+        continue;
       }
 
-      if (!isQuoted) {
-        if (c == ' ') {
-          if (buffer.isNotEmpty) {
-            args.add(buffer.toString());
-            buffer.clear();
-          }
+      if (c == '"') {
+        buffer.write(r'\' * (backslashes ~/ 2));
 
-          continue;
+        if (backslashes.isOdd) {
+          buffer.write('"');
+        } else {
+          isQuoted = !isQuoted;
         }
+
+        backslashes = 0;
+        inArgument = true;
+
+        continue;
+      }
+
+      buffer.write(r'\' * backslashes);
+      backslashes = 0;
+
+      if (!isQuoted && c.trim().isEmpty) {
+        if (inArgument) {
+          args.add(buffer.toString());
+          buffer.clear();
+
+          inArgument = false;
+        }
+
+        continue;
       }
 
       buffer.write(c);
+      inArgument = true;
     }
 
-    if (buffer.isNotEmpty) {
+    buffer.write(r'\' * backslashes);
+
+    if (inArgument) {
       args.add(buffer.toString());
     }
 
@@ -678,7 +689,7 @@ class ExecutionCommand extends Execution {
 
     yield Line()
       ..color(color)
-      ..add('$status ${command}')
+      ..add('$status $label')
       ..color(ConsoleColor.brightBlack)
       ..style(italic: true)
       ..add(workingDirectory != ctx.workspace.path
@@ -695,7 +706,7 @@ class ExecutionCommand extends Execution {
   Stream<ExecutionError> getErrors() async* {
     if (hasError) {
       yield ExecutionError(
-          label: command, exitCode: this.exitCode!, lines: output);
+          label: label, exitCode: this.exitCode!, lines: output);
     }
   }
 }

@@ -97,6 +97,35 @@ class Computable<T> {
   }
 }
 
+/// Source of `quote`, which a command calls to embed a value as exactly one
+/// argument: `${args['rest'].map(quote).join(' ')}`. It writes the form
+/// `ExecutionCommand._parseArguments` (execute.dart) reads, so a change to one
+/// is a change to the other.
+const _quoteSource = r'''
+String quote(String argument) {
+  final buffer = StringBuffer('"');
+  var backslashes = 0;
+
+  for (final c in argument.split('')) {
+    if (c == '\\') {
+      backslashes++;
+
+      continue;
+    }
+
+    buffer.write('\\' * (c == '"' ? backslashes * 2 + 1 : backslashes));
+    buffer.write(c);
+
+    backslashes = 0;
+  }
+
+  buffer.write('\\' * (backslashes * 2));
+  buffer.write('"');
+
+  return buffer.toString();
+}
+''';
+
 Future<dynamic> _eval(CommandContext ctx, String code, {String? target}) async {
   final port = ReceivePort();
 
@@ -114,6 +143,8 @@ Future<dynamic> _eval(CommandContext ctx, String code, {String? target}) async {
     import 'dart:convert' as _convert;
 
     String base64(String input) => _convert.base64.encode(_convert.utf8.encode(input));
+
+    ${_quoteSource}
 
     void main(_, _isolate.SendPort port) {
       var params = ${jsonEncode(ctx.task.params)};

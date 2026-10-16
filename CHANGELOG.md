@@ -1,3 +1,9 @@
+## 0.7.5
+
+- Add `quote`, which embeds a value in a command as exactly one argument
+- Keep whitespace inside quotes as written
+- Join quoted text with the text around it, and read backslashes as Windows does: literal unless they precede a quote
+
 ## 0.7.4
 
 - Make positional arguments available to commands as `args['rest']`

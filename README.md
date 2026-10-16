@@ -145,14 +145,14 @@ tasks:
     target: target:app
 ```
 
-Positional arguments, and everything after `--`, are available as the list `args['rest']`, so `strike test test/foo_test.dart -- --plain-name bar` can forward them. A task cannot declare an argument named `rest`.
+Positional arguments, and everything after `--`, are available as the list `args['rest']`, so `strike test test/foo_test.dart -- --plain-name "two words"` can forward them. `quote` wraps a value so it reaches the command as exactly one argument, whatever spaces, quotes or backslashes it holds. A task cannot declare an argument named `rest`.
 
 ```yaml
 tasks:
   test:
     info: "run tests"
 
-    run: "flutter test ${args['rest'].join(' ')}"
+    run: "flutter test ${args['rest'].map(quote).join(' ')}"
     target: target:packages
 ```
 
