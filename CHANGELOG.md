@@ -1,3 +1,7 @@
+## 0.7.4
+
+- Make positional arguments available to commands as `args['rest']`
+
 ## 0.7.3
 
 - Fix escaping of spaces in commands

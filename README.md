@@ -145,6 +145,17 @@ tasks:
     target: target:app
 ```
 
+Positional arguments, and everything after `--`, are available as the list `args['rest']`, so `strike test test/foo_test.dart -- --plain-name bar` can forward them. A task cannot declare an argument named `rest`.
+
+```yaml
+tasks:
+  test:
+    info: "run tests"
+
+    run: "flutter test ${args['rest'].join(' ')}"
+    target: target:packages
+```
+
 ### Conditional Steps
 
 You can also conditionally run steps. This is useful when you want to run a step only if a certain condition is met.

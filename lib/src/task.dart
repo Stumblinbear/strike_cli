@@ -140,6 +140,13 @@ class TaskArg {
       );
     }
 
+    if (name == 'rest') {
+      throw FormatException(
+        'Task argument `name` cannot be `rest`, which holds the positional arguments',
+        'In task $taskName, name: ${jsonEncode(name)}',
+      );
+    }
+
     if (info is! String) {
       throw FormatException(
         'Task argument `info` must be a string',

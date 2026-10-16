@@ -68,6 +68,8 @@ class TaskCommand extends Command<int> {
           : argType.defaultVal;
     }
 
+    args['rest'] = argResults.rest;
+
     return await executeTask(
       CommandContext(
         workspace: workspace,
