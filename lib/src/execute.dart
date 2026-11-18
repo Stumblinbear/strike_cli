@@ -7,6 +7,7 @@ import 'package:dart_console/dart_console.dart';
 import 'package:strike_cli/src/task.dart';
 import 'package:strike_cli/src/context.dart';
 import 'package:path/path.dart' as path;
+import 'package:pool/pool.dart';
 
 final _ansiRegex = RegExp(r'\x1B\[\??\d?\d?[A-Za-z]');
 
@@ -91,14 +92,12 @@ Future<int> executeTask(
   final exec = await task.step.execute(ctx);
 
   if (!showProgress) {
-    await for (final entry in exec.run(ctx)) {
+    // Each block is yielded after its command completes, so breaking on
+    // exec.isComplete would cut the last block short.
+    await for (final entry in exec.run(ctx, root: exec)) {
       console
         ..writeLine(entry.toString())
         ..resetColorAttributes();
-
-      if (exec.isComplete) {
-        break;
-      }
     }
   } else {
     var timer = 0;
@@ -347,7 +346,12 @@ abstract class Execution {
 
   void update(CommandContext ctx, {required int timer});
 
-  Stream<Line> run(CommandContext ctx);
+  /// Runs this execution and yields its display output.
+  ///
+  /// A command's lines are yielded together once the command finishes.
+  /// [root] must be the execution the run started from. Once [root] has an
+  /// error, no further command starts anywhere in the run.
+  Stream<Line> run(CommandContext ctx, {required Execution root});
 
   Stream<Line> getDisplayOutput(CommandContext ctx, {required int timer});
 
@@ -382,18 +386,18 @@ class ExecutionGroup extends Execution {
   @override
   bool get hasError => exec.any((entry) => entry.hasError);
 
+  /// How many entries run at once.
+  int get _slotCount => concurrency <= 0 ? exec.length : concurrency;
+
   @override
   void update(CommandContext ctx, {required int timer}) {
-    exec
-        .where((entry) => !entry.isComplete)
-        .take(concurrency <= 0 ? exec.length : concurrency)
-        .forEach((entry) {
+    exec.where((entry) => !entry.isComplete).take(_slotCount).forEach((entry) {
       entry.update(ctx, timer: timer);
     });
   }
 
   @override
-  Stream<Line> run(CommandContext ctx) async* {
+  Stream<Line> run(CommandContext ctx, {required Execution root}) async* {
     if (name != null) {
       yield* _createHeader(includeCounter: false);
     }
@@ -410,40 +414,39 @@ class ExecutionGroup extends Execution {
 
     if (concurrency == 1) {
       for (final entry in exec) {
-        yield* entry.run(ctx).map(
-              (line) => Line()
-                ..color(ConsoleColor.brightBlack)
-                ..add(name != null ? _kGroupPrefix : '')
-                ..add(line),
-            );
+        if (root.hasError) {
+          return;
+        }
+
+        yield* entry.run(ctx, root: root).map(_prefixed);
       }
     } else {
-      final futures = <Future<List<Line>>>[];
-
-      for (final entry in exec) {
-        // We have to convert this to a list so that the streams will complete without `await`ing it
-        futures.add(entry.run(ctx).toList());
-
-        if (futures.length == concurrency) {
-          yield* Stream.fromIterable(await futures.removeAt(0)).map(
-            (line) => Line()
-              ..color(ConsoleColor.brightBlack)
-              ..add(name != null ? _kGroupPrefix : '')
-              ..add(line),
-          );
+      // Collecting each entry's output lets it run to completion before
+      // anything reads it, so blocks arrive whole and in finish order. A
+      // failed command's exit code is set before its block ends, so the next
+      // entry the pool starts already finds root.hasError true.
+      Future<List<Line>?> collect(Execution entry) async {
+        if (root.hasError) {
+          return null;
         }
+
+        return entry.run(ctx, root: root).toList();
       }
 
-      while (futures.length > 0) {
-        yield* Stream.fromIterable(await futures.removeAt(0)).map(
-          (line) => Line()
-            ..color(ConsoleColor.brightBlack)
-            ..add(name != null ? _kGroupPrefix : '')
-            ..add(line),
-        );
+      await for (final block
+          in Pool(_slotCount).forEach<Execution, List<Line>?>(exec, collect)) {
+        for (final line in block ?? const <Line>[]) {
+          yield _prefixed(line);
+        }
       }
     }
   }
+
+  /// [line] as it appears inside this group's output.
+  Line _prefixed(Line line) => Line()
+    ..color(ConsoleColor.brightBlack)
+    ..add(name != null ? _kGroupPrefix : '')
+    ..add(line);
 
   Stream<Line> _createHeader({required bool includeCounter}) async* {
     final color = exec.length > 0 && isComplete
@@ -556,7 +559,7 @@ class ExecutionCommand extends Execution {
       (succeed == SucceedOn.onPass ? exitCode != 0 : exitCode == 0);
 
   @override
-  Stream<Line> run(CommandContext ctx) async* {
+  Stream<Line> run(CommandContext ctx, {required Execution root}) async* {
     await update(ctx, timer: 0);
 
     await _process.exitCode;

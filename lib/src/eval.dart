@@ -126,9 +126,20 @@ String quote(String argument) {
 }
 ''';
 
-Future<dynamic> _eval(CommandContext ctx, String code, {String? target}) async {
-  final port = ReceivePort();
+/// The result of each program this process has evaluated, keyed by its
+/// source.
+final _evaluations = <String, Future<dynamic>>{};
 
+Future<dynamic> _eval(CommandContext ctx, String code, {String? target}) async {
+  // The program embeds the code as a JSON string literal. Dart reads every
+  // JSON escape as JSON does, and only `$` gives a Dart string literal a
+  // meaning JSON lacks, so code without one evaluates to itself.
+  if (!code.contains(r'$')) {
+    return code;
+  }
+
+  // The program imports under `_isolate` and `_convert` and writes `__var`
+  // for each `\$`, so code that reaches the program must not contain them.
   if (code.contains('_isolate') ||
       code.contains('_convert') ||
       code.contains('__var')) {
@@ -136,9 +147,19 @@ Future<dynamic> _eval(CommandContext ctx, String code, {String? target}) async {
         code, 'code', 'cannot contain `_isolate`, `_convert` or `__var`');
   }
 
-  await Isolate.spawnUri(
-    Uri.dataFromString(
-      '''
+  final program = _evaluationProgram(ctx, code, target: target);
+
+  return _evaluations.putIfAbsent(program, () => _spawnEvaluation(program));
+}
+
+/// The Dart program that evaluates [code] as a string literal, with `params`,
+/// `args`, `target`, `platform`, `quote` and `base64` in scope, and sends the
+/// result to the port it is spawned with.
+///
+/// The result carries `__var` for each `\$` in [code], and the receiver must
+/// replace it with `$`.
+String _evaluationProgram(CommandContext ctx, String code, {String? target}) {
+  return '''
     import 'dart:isolate' as _isolate;
     import 'dart:convert' as _convert;
 
@@ -156,9 +177,14 @@ Future<dynamic> _eval(CommandContext ctx, String code, {String? target}) async {
 
       port.send(${jsonEncode(code.replaceAll(r'\$', r'__var'))});
     }
-    ''',
-      mimeType: 'application/dart',
-    ),
+    ''';
+}
+
+Future<dynamic> _spawnEvaluation(String program) async {
+  final port = ReceivePort();
+
+  await Isolate.spawnUri(
+    Uri.dataFromString(program, mimeType: 'application/dart', encoding: utf8),
     [],
     port.sendPort,
   );

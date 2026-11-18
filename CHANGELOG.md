@@ -1,3 +1,12 @@
+## 0.7.7
+
+- Return text with nothing to interpolate without evaluating it, and evaluate identical expressions once per run
+- With `--no-progress`, start the next command as soon as any running one finishes, and print each command's result when it finishes
+- Fix `--no-progress` printing only one more line once every command had finished, and dropping the rest
+- Fix expressions failing when any argument or parameter contains a non-ASCII character
+- Fix text with nothing to interpolate failing when it contains `_isolate`, `_convert` or `__var`
+- Require Dart 3.4 or later
+
 ## 0.7.6
 
 - Fix `args['rest'].map(quote)` failing when no positional arguments are given
