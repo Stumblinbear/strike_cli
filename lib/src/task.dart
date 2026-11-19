@@ -13,6 +13,7 @@ class Task {
     required this.info,
     required this.args,
     required this.params,
+    required this.killAfterFailure,
     required this.step,
   });
 
@@ -87,6 +88,12 @@ class Task {
       info: info,
       args: args,
       params: params,
+      killAfterFailure: _parseIntOrExpression(
+        input,
+        'killAfterFailure',
+        owner: 'Task',
+        location: 'In task $taskName',
+      ),
       step: Step.parse(
         input,
         taskName: taskName,
@@ -100,13 +107,63 @@ class Task {
   final String info;
   final List<TaskArg> args;
   final Map<String, dynamic> params;
+
+  /// The task's `killAfterFailure` key, in seconds.
+  final Computable<int>? killAfterFailure;
+
   final Step step;
+
+  /// The execution that runs this task.
+  ///
+  /// When [killAfterFailure] is set, the commands of this task still running
+  /// that long after the first failure among them are killed, also when this
+  /// task runs as a step of another.
+  ///
+  /// Throws a [FormatException] when [killAfterFailure] is negative.
+  Future<Execution> execute(CommandContext ctx) async {
+    final killAfterFailure = await _killAfterFailureDelay(ctx);
+
+    final exec = await step.execute(ctx);
+
+    if (killAfterFailure == null) {
+      return exec;
+    }
+
+    // A concurrency of 1 streams the one entry's output as it comes, where
+    // the default collects it whole before any of it is shown.
+    return Execution.group(
+      exec: [exec],
+      concurrency: 1,
+      killAfterFailure: killAfterFailure,
+    );
+  }
+
+  /// How long after the first failure among this task's commands strike lets
+  /// them run before killing them, or null to wait however long they take.
+  Future<Duration?> _killAfterFailureDelay(CommandContext ctx) async {
+    final seconds = await killAfterFailure?.get(ctx);
+
+    if (seconds == null) {
+      return null;
+    }
+
+    if (seconds < 0) {
+      throw FormatException(
+        'Task `killAfterFailure` must not be negative',
+        'killAfterFailure: $seconds',
+      );
+    }
+
+    return Duration(seconds: seconds);
+  }
 
   dynamic toObject() {
     return {
       'info': info,
       if (args.isNotEmpty) 'args': args.map((e) => e.toObject()).toList(),
       if (params.isNotEmpty) 'params': params,
+      if (killAfterFailure != null)
+        'killAfterFailure': killAfterFailure!.toObject(),
       'step': step.toObject(),
     };
   }
@@ -115,6 +172,30 @@ class Task {
   String toString() {
     return 'Task(info: $info, step: $step)';
   }
+}
+
+/// The value of [key] in [input], a whole number or an expression evaluating
+/// to one, or null when [input] has no [key].
+///
+/// Throws a [FormatException] when the value is neither a string nor a whole
+/// number. Its message includes [owner] and [key], and its source starts
+/// with [location].
+Computable<int>? _parseIntOrExpression(
+  Map<dynamic, dynamic> input,
+  String key, {
+  required String owner,
+  required String location,
+}) {
+  final value = input[key];
+
+  if ((value is! String?) && (value is! int?)) {
+    throw FormatException(
+      '$owner `$key` must be a string or whole number',
+      '$location, $key: ${jsonEncode(value)}',
+    );
+  }
+
+  return value != null ? Computable.from(value) : null;
 }
 
 class TaskArg {
@@ -444,14 +525,13 @@ class StepCommand extends Step {
         );
       }
 
-      final concurrency = input['concurrency'];
-
-      if ((concurrency is! String?) && (concurrency is! int?)) {
-        throw FormatException(
-          'Step `concurrency` must be a string or number',
-          'In task $taskName${name != null ? '\'s step ${jsonEncode(name)}' : ''}, concurrency: ${jsonEncode(concurrency)}',
-        );
-      }
+      final concurrency = _parseIntOrExpression(
+        input,
+        'concurrency',
+        owner: 'Step',
+        location:
+            'In task $taskName${name != null ? '\'s step ${jsonEncode(name)}' : ''}',
+      );
 
       if (input.containsKey('workingDirectory')) {
         final inputWorkingDirectory = input['workingDirectory'];
@@ -488,7 +568,7 @@ class StepCommand extends Step {
         condition: condition,
         name: name != null ? Computable<String>.from(name) : null,
         run: Computable<String>.from(run),
-        concurrency: concurrency != null ? Computable.from(concurrency) : null,
+        concurrency: concurrency,
         target: target,
         workingDirectory: workingDirectory,
         env: env,
@@ -649,19 +729,18 @@ class StepGroup extends Step {
       ));
     }
 
-    final concurrency = input['concurrency'];
-
-    if ((concurrency is! String?) && (concurrency is! int?)) {
-      throw FormatException(
-        'Step `concurrency` must be a string or number',
-        'In task $taskName${name != null ? '\'s step ${jsonEncode(name)}' : ''}, concurrency: ${jsonEncode(concurrency)}',
-      );
-    }
+    final concurrency = _parseIntOrExpression(
+      input,
+      'concurrency',
+      owner: 'Step',
+      location:
+          'In task $taskName${name != null ? '\'s step ${jsonEncode(name)}' : ''}',
+    );
 
     return StepGroup(
       name: name != null ? Computable.from(name) : null,
       condition: condition,
-      concurrency: concurrency != null ? Computable.from(concurrency) : null,
+      concurrency: concurrency,
       steps: steps,
     );
   }
@@ -721,7 +800,7 @@ class StepTask extends Step {
 
   @override
   Future<Execution> execute(CommandContext ctx) async {
-    return ctx.config.tasks[task]!.step.execute(ctx);
+    return ctx.config.tasks[task]!.execute(ctx);
   }
 
   @override

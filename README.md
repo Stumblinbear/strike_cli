@@ -77,9 +77,9 @@ tasks:
 
         name: "Fetching Dependencies"
         run: "dart pub get"
-        targets: target:packages
+        target: target:packages
         # You also have the option of listing the targets directly
-        # targets: packages/*
+        # target: packages/*
 ```
 
 Your targets may also reference other targets.
@@ -123,8 +123,31 @@ tasks:
     name: "Fetching Dependencies"
     run: "dart pub get"
     concurrency: 4
-    targets: target:packages
+    target: target:packages
 ```
+
+## Failures
+
+When a command fails, strike starts no more commands, waits for the ones still running to finish, then reports every failure with its output. Commands strike killed are listed by name below them.
+
+To stop waiting, set `killAfterFailure` on a task to the number of seconds the running commands get after the first failure. Any still running then are killed, along with every process they started. `0` kills them as soon as a command fails. Like `concurrency`, the value can be an expression.
+
+```yaml
+tasks:
+  test:
+    info: "run tests"
+
+    run: "flutter test"
+    concurrency: 4
+    target: target:packages
+    killAfterFailure: 10
+```
+
+A task's `killAfterFailure` covers its own commands wherever it runs, including when another task runs it with `task:`. The clock starts at the first failure among that task's commands. When both tasks set it, each kills its own commands: if `outer` sets `5` and runs `inner`, which sets `1`, a failure in `inner` kills `inner`'s running commands after 1 second and the rest of `outer`'s after 5.
+
+Pressing Ctrl+C, with or without `--no-progress`, kills every running command, along with every process it started, then reports the failures as above. On Linux and macOS, SIGTERM and SIGHUP do the same, except that a signal strike started with ignored stays ignored, so `nohup strike` keeps running when the terminal closes. On both, a kill sends SIGTERM to every process in the tree, then SIGKILL to any still running 5 seconds later.
+
+On Windows, closing strike's console, ending it from Task Manager, Ctrl+Break or a crash ends every running command and every process under it along with strike. A process a command starts to outlive it, such as a daemon, keeps running after strike exits, unless the run was stopped or a command was killed. Then it ends with strike too, along with any process a kill could not reach because its parent had already exited.
 
 ## Arguments
 

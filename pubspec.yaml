@@ -16,5 +16,8 @@ dependencies:
   dart_console: ^1.1.2
   pool: ^1.5.3
 
+  ffi: ^2.1.0
+  win32: ^5.5.4
+
 executables:
   strike: strike_cli

@@ -5,6 +5,13 @@
 - Fix `--no-progress` printing only one more line once every command had finished, and dropping the rest
 - Fix expressions failing when any argument or parameter contains a non-ASCII character
 - Fix text with nothing to interpolate failing when it contains `_isolate`, `_convert` or `__var`
+- After a command fails, wait for the commands still running before exiting, and on Ctrl+C kill each running command with every process it started, so none outlives strike
+- Add `killAfterFailure`, the seconds a task gives its running commands after the first failure before killing them, which also applies to a task run through a `task:` step
+- Report a command that cannot start as a failure and wait for the others, instead of crashing and leaving them running
+- Keep commands from outliving strike when one prints text that is not UTF-8, on Ctrl+C in progress mode with stdin redirected, and on SIGTERM or SIGHUP outside Windows, which now act as Ctrl+C
+- On Windows, end every command with strike when its console closes, it is ended or it crashes, and leave running any process a command started to outlive it unless the run was stopped or a command was killed
+- On Linux and macOS, send SIGTERM to a killed command's processes and SIGKILL to those still running 5 seconds later, and leave ignored a signal strike started with ignored, so `nohup strike` keeps working
+- List the commands strike killed by name in the failure report, below the output of those that failed
 - Require Dart 3.4 or later
 
 ## 0.7.6
